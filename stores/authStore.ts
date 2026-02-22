@@ -7,6 +7,7 @@ interface AuthState {
     clientName: string | null;
     clientPhone: string | null;
     clientId: number | null;
+    clientPoints: number;
 
     // Computed
     isLoggedIn: () => boolean;
@@ -15,6 +16,7 @@ interface AuthState {
     login: (token: string, name: string, phone: string, id: number) => void;
     logout: () => void;
     setName: (name: string) => void;
+    setPoints: (points: number) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -24,6 +26,7 @@ export const useAuthStore = create<AuthState>()(
             clientName: null,
             clientPhone: null,
             clientId: null,
+            clientPoints: 0,
 
             isLoggedIn: () => !!get().token,
 
@@ -31,9 +34,10 @@ export const useAuthStore = create<AuthState>()(
                 set({ token, clientName: name, clientPhone: phone, clientId: id }),
 
             logout: () =>
-                set({ token: null, clientName: null, clientPhone: null, clientId: null }),
+                set({ token: null, clientName: null, clientPhone: null, clientId: null, clientPoints: 0 }),
 
             setName: (name) => set({ clientName: name }),
+            setPoints: (points) => set({ clientPoints: points }),
         }),
         {
             name: 'catalogo-auth',

@@ -134,6 +134,8 @@ export interface ProfileResponse {
     id: number;
     name: string;
     phone: string;
+    email: string;
+    points: number;
     total_orders: number;
     last_order_at: string | null;
 }

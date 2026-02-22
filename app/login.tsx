@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -14,13 +14,13 @@ import {
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
-import { requestOTP, verifyOTP, logoutAPI } from '@/services/api';
+import { requestOTP, verifyOTP, logoutAPI, getProfile } from '@/services/api';
 
 type Step = 'phone' | 'code' | 'logged_in';
 
 export default function LoginScreen() {
     const router = useRouter();
-    const { isLoggedIn, clientName, clientPhone, login, logout } = useAuthStore();
+    const { isLoggedIn, clientName, clientPhone, clientPoints, login, logout, setPoints } = useAuthStore();
 
     const [step, setStep] = useState<Step>(isLoggedIn() ? 'logged_in' : 'phone');
     const [phone, setPhone] = useState('');
@@ -31,6 +31,15 @@ export default function LoginScreen() {
     const [devCode, setDevCode] = useState<string | null>(null);
 
     const fadeAnim = useRef(new Animated.Value(1)).current;
+
+    // Fetch fresh profile (including points) when logged in
+    useEffect(() => {
+        if (step === 'logged_in') {
+            getProfile().then(data => {
+                if (data?.points !== undefined) setPoints(data.points);
+            }).catch(() => { });
+        }
+    }, [step]);
 
     const animateTransition = (nextStep: Step) => {
         Animated.timing(fadeAnim, {
@@ -252,6 +261,9 @@ export default function LoginScreen() {
                                 </View>
                                 <Text style={styles.profileName}>{clientName}</Text>
                                 <Text style={styles.profilePhone}>📱 {clientPhone}</Text>
+                                <View style={styles.pointsBadge}>
+                                    <Text style={styles.pointsText}>🏆 {clientPoints} puntos</Text>
+                                </View>
                             </View>
 
                             <Pressable
@@ -417,6 +429,20 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#666',
         marginTop: 4,
+    },
+    pointsBadge: {
+        marginTop: 10,
+        backgroundColor: '#FFF8E1',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#FFD54F',
+    },
+    pointsText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#F57F17',
     },
     logoutBtn: {
         alignItems: 'center',
