@@ -1,21 +1,33 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { useConfigStore } from '@/stores/configStore';
+
 // ─── Config ───────────────────────────────────
-const API_BASE = 'https://facilgestion.site/public/v1';
-const TENANT_SLUG = 'mini_super1-';
-export const API_URL = `${API_BASE}/${TENANT_SLUG}`;
+const API_BASE = 'https://facilgestion.site/public/v1/';
 
 // ─── Axios Instance ───────────────────────────
 const api = axios.create({
-    baseURL: API_URL,
+    baseURL: API_BASE, // Base without slug
     timeout: 10000,
     headers: { 'Content-Type': 'application/json' },
 });
 
-// Auth interceptor — attach token from persisted store
+// Tenant and Auth interceptor
 api.interceptors.request.use(async (config) => {
     try {
+        // 1. Resolve Tenant Slug
+        const slug = useConfigStore.getState().tenantSlug;
+        if (slug && config.url && !config.url.startsWith('http')) {
+            // Ensure we don't double the slug if it was already added by a retry
+            if (!config.url.startsWith(slug)) {
+                // Ensure URL has the tenant prefix if not absolute
+                const cleanUrl = config.url.startsWith('/') ? config.url.substring(1) : config.url;
+                config.url = `${slug}/${cleanUrl}`;
+            }
+        }
+
+        // 2. Attach Auth Token
         const raw = await AsyncStorage.getItem('catalogo-auth');
         if (raw) {
             const parsed = JSON.parse(raw);
@@ -85,7 +97,9 @@ export interface CreateOrderPayload {
     client_name: string;
     client_phone: string;
     items: OrderItem[];
-    payment_method: 'EFECTIVO' | 'TRANSFERENCIA';
+    payment_method: 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO';
+    payment_amount_cash?: number;
+    payment_amount_transfer?: number;
     notes?: string;
 }
 
@@ -127,7 +141,10 @@ export interface OTPVerifyResponse {
         id: number;
         name: string;
         phone: string;
+        has_password: boolean;
     };
+    requires_otp?: boolean;
+    dev_code?: string;
 }
 
 export interface ProfileResponse {
@@ -146,48 +163,68 @@ export async function getProducts(params?: {
     search?: string;
     category?: number;
 }): Promise<PaginatedResponse<Product>> {
-    const { data } = await api.get('/products/', { params });
+    const { data } = await api.get('products/', { params });
     return data;
 }
 
 export async function getProduct(id: number): Promise<Product> {
-    const { data } = await api.get(`/products/${id}/`);
+    const { data } = await api.get(`products/${id}/`);
     return data;
 }
 
 export async function getCategories(): Promise<Category[]> {
-    const { data } = await api.get('/categories/');
+    const { data } = await api.get('categories/');
     return data;
 }
 
 export async function getStoreConfig(): Promise<StoreConfig> {
-    const { data } = await api.get('/store/');
+    const { data } = await api.get('store/');
     return data;
 }
 
 export async function createOrder(payload: CreateOrderPayload): Promise<OrderResponse> {
-    const { data } = await api.post('/orders/', payload);
+    const { data } = await api.post('orders/', payload);
+    return data;
+}
+
+export async function getUserOrders(phone: string): Promise<OrderResponse['order'][]> {
+    const { data } = await api.get('orders/', { params: { phone } });
     return data;
 }
 
 // ─── Auth API Functions ──────────────────────
-export async function requestOTP(phone: string, email: string): Promise<OTPRequestResponse> {
-    const { data } = await api.post('/auth/request-otp/', { phone, email });
+export async function requestOTP(phone: string, email?: string, name?: string): Promise<OTPRequestResponse> {
+    const { data } = await api.post('auth/request-otp/', { phone, email, name });
     return data;
 }
 
 export async function verifyOTP(phone: string, code: string, name?: string, email?: string): Promise<OTPVerifyResponse> {
-    const { data } = await api.post('/auth/verify-otp/', { phone, code, name, email });
+    const { data } = await api.post('auth/verify-otp/', { phone, code, name, email });
     return data;
 }
 
-export async function getProfile(): Promise<ProfileResponse> {
-    const { data } = await api.get('/auth/profile/');
+export async function getProfile(): Promise<any> {
+    const { data } = await api.get('auth/profile/');
     return data;
 }
 
 export async function logoutAPI(): Promise<void> {
-    await api.post('/auth/logout/');
+    await api.post('auth/logout/');
+}
+
+export async function loginPassword(phone: string, password: string): Promise<OTPVerifyResponse> {
+    const { data } = await api.post('auth/login-password/', { phone, password });
+    return data;
+}
+
+export async function setPassword(password: string): Promise<{ message: string }> {
+    const { data } = await api.post('auth/set-password/', { password });
+    return data;
+}
+
+export async function registerAPI(name: string, phone: string, email: string, password: string): Promise<OTPVerifyResponse> {
+    const { data } = await api.post('auth/register/', { name, phone, email, password });
+    return data;
 }
 
 export default api;

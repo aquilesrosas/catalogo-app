@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "Catálogo",
+    "name": "Catalogo",
     "slug": "catalogo-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "catalogo",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",

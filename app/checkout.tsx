@@ -16,7 +16,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatPrice } from '@/utils/format';
 import { createOrder } from '@/services/api';
 
-type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA';
+type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO';
 
 export default function CheckoutScreen() {
     const { items, getTotal, clearCart } = useCartStore();
@@ -28,6 +28,7 @@ export default function CheckoutScreen() {
     const [phone, setPhone] = useState('');
     const [notes, setNotes] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('EFECTIVO');
+    const [cashAmount, setCashAmount] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
     // Auto-fill from auth store
@@ -65,13 +66,26 @@ export default function CheckoutScreen() {
                 quantity: i.quantity,
             }));
 
-            const result = await createOrder({
+            let payload: any = {
                 client_name: trimmedName,
                 client_phone: trimmedPhone,
                 items: orderItems,
                 payment_method: paymentMethod,
                 notes: notes.trim(),
-            });
+            };
+
+            if (paymentMethod === 'MIXTO') {
+                const cash = parseFloat(cashAmount);
+                if (isNaN(cash) || cash < 0 || cash > total) {
+                    Alert.alert('Error', 'Ingresá un monto en efectivo válido');
+                    setSubmitting(false);
+                    return;
+                }
+                payload.payment_amount_cash = cash;
+                payload.payment_amount_transfer = total - cash;
+            }
+
+            const result = await createOrder(payload);
 
             clearCart();
 
@@ -202,21 +216,39 @@ export default function CheckoutScreen() {
                         <Pressable
                             style={[
                                 styles.paymentOption,
-                                paymentMethod === 'TRANSFERENCIA' && styles.paymentActive,
+                                paymentMethod === 'MIXTO' && styles.paymentActive,
                             ]}
-                            onPress={() => setPaymentMethod('TRANSFERENCIA')}
+                            onPress={() => setPaymentMethod('MIXTO')}
                         >
-                            <Text style={styles.paymentIcon}>📱</Text>
+                            <Text style={styles.paymentIcon}>⚖️</Text>
                             <Text
                                 style={[
                                     styles.paymentText,
-                                    paymentMethod === 'TRANSFERENCIA' && styles.paymentTextActive,
+                                    paymentMethod === 'MIXTO' && styles.paymentTextActive,
                                 ]}
                             >
-                                Transferencia
+                                Mixto
                             </Text>
                         </Pressable>
                     </View>
+
+                    {paymentMethod === 'MIXTO' && (
+                        <View style={styles.mixtoArea}>
+                            <Text style={styles.inputLabel}>Monto en efectivo (💵)</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={cashAmount}
+                                onChangeText={setCashAmount}
+                                placeholder="Ej: 500"
+                                keyboardType="numeric"
+                            />
+                            {cashAmount !== '' && !isNaN(parseFloat(cashAmount)) && (
+                                <Text style={styles.mixtoDetail}>
+                                    📱 Restante por transferencia: {formatPrice(total - parseFloat(cashAmount))}
+                                </Text>
+                            )}
+                        </View>
+                    )}
                 </View>
 
                 {/* Notes */}
@@ -397,6 +429,18 @@ const styles = StyleSheet.create({
     },
     paymentTextActive: {
         color: '#2E7D32',
+    },
+    mixtoArea: {
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    mixtoDetail: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 8,
+        fontStyle: 'italic',
     },
     // ─── Submit ───
     submitBtn: {

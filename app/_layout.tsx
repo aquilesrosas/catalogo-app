@@ -143,8 +143,20 @@ const errorStyles = StyleSheet.create({
     buttonText: { color: '#fff', fontWeight: '600' },
 });
 
+import { useConfigStore } from '@/stores/configStore';
+import { useSegments, Redirect } from 'expo-router';
+
 // ─── Root Layout ─────────────────────────────
 export default function RootLayout() {
+    const isConfigured = useConfigStore((s) => s.isConfigured());
+    const segments = useSegments();
+    const router = useRouter(); // <-- Agregado para el FAB
+
+    // Redirection logic using component for stability
+    if (!isConfigured && segments[0] !== 'config_setup') {
+        return <Redirect href="/config_setup" />;
+    }
+
     return (
         <ErrorBoundary>
             <StatusBar style="light" />
@@ -156,6 +168,13 @@ export default function RootLayout() {
                     contentStyle: { backgroundColor: '#FAFAFA' },
                 }}
             >
+                <Stack.Screen
+                    name="config_setup"
+                    options={{
+                        headerShown: false,
+                        gestureEnabled: false,
+                    }}
+                />
                 <Stack.Screen
                     name="index"
                     options={{
@@ -191,13 +210,60 @@ export default function RootLayout() {
                     }}
                 />
                 <Stack.Screen
+                    name="orders"
+                    options={{
+                        title: 'Mis Pedidos',
+                        headerBackTitle: 'Volver',
+                    }}
+                />
+                <Stack.Screen
                     name="login"
                     options={{
                         title: 'Mi cuenta',
                         headerBackTitle: 'Volver',
                     }}
                 />
+                <Stack.Screen
+                    name="chat"
+                    options={{
+                        headerShown: true,
+                        title: '🤖 Asesor Virtual',
+                        headerBackTitle: 'Catálogo',
+                    }}
+                />
             </Stack>
+
+            {/* Global FAB Asesor Virtual */}
+            {isConfigured && segments[0] !== 'config_setup' && segments[0] !== 'chat' && (
+                <Pressable
+                    onPress={() => router.push('/chat')}
+                    style={fabStyles.fabContainer}
+                >
+                    <Text style={fabStyles.fabIcon}>🤖</Text>
+                </Pressable>
+            )}
         </ErrorBoundary>
     );
 }
+
+const fabStyles = StyleSheet.create({
+    fabContainer: {
+        position: 'absolute',
+        bottom: 24,
+        right: 24,
+        backgroundColor: '#2E7D32',
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 8,
+    },
+    fabIcon: {
+        fontSize: 30,
+    }
+});
