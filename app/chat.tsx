@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, Platform, KeyboardAvoidingView, Alert } from 'r
 import { GiftedChat, IMessage, Bubble } from 'react-native-gifted-chat';
 import { Stack, useNavigation } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 
 export default function CatalogChatScreen() {
@@ -10,6 +11,7 @@ export default function CatalogChatScreen() {
     const [isTyping, setIsTyping] = useState(false);
     const { isLoggedIn, clientPhone, clientName } = useAuthStore();
     const navigation = useNavigation();
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         // Initial welcome message
@@ -94,7 +96,7 @@ export default function CatalogChatScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingBottom: Platform.OS === 'android' ? insets.bottom : 0 }]}>
             <Stack.Screen
                 options={{
                     title: '🤖 Asesor Virtual',
