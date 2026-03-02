@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Product } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 import { useCartStore } from '@/stores/cartStore';
+import { useCatalogStore } from '@/stores/catalogStore';
 import StockBadge from './StockBadge';
 
 const CARD_WIDTH = (Dimensions.get('window').width - 48) / 2;
@@ -16,6 +17,7 @@ interface ProductCardProps {
 function ProductCard({ product }: ProductCardProps) {
     const router = useRouter();
     const addItem = useCartStore((s) => s.addItem);
+    const offers = useCatalogStore((s) => s.offers); // Fetch offers
     const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
     React.useEffect(() => {
@@ -34,6 +36,11 @@ function ProductCard({ product }: ProductCardProps) {
             addItem(product, qty);
         }
     };
+
+    // Determine if product has an active offer
+    const applicableOffer = offers.find(o =>
+        o.es_global || o.productos_ids.includes(product.id_producto)
+    );
 
     return (
         <Animated.View style={{ opacity: fadeAnim }}>
@@ -59,6 +66,20 @@ function ProductCard({ product }: ProductCardProps) {
                             <Text style={styles.placeholderIcon}>📦</Text>
                         </View>
                     )}
+
+                    {/* Offer Badge Overlay */}
+                    {applicableOffer && (
+                        <View style={styles.offerBadge}>
+                            <Text style={styles.offerBadgeText}>
+                                {applicableOffer.tipo === 'PORCENTAJE'
+                                    ? `${applicableOffer.valor}% OFF`
+                                    : applicableOffer.tipo === 'MONTO_FIJO'
+                                        ? `-$${applicableOffer.valor}`
+                                        : applicableOffer.nombre}
+                            </Text>
+                        </View>
+                    )}
+
                     {/* Unit badge on image */}
                     {product.sells_by_weight && (
                         <View style={styles.unitBadge}>
@@ -151,6 +172,21 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 11,
         fontWeight: '700',
+    },
+    offerBadge: {
+        position: 'absolute',
+        top: 6,
+        left: 6,
+        backgroundColor: '#D32F2F', // Red for offers
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        zIndex: 5,
+    },
+    offerBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '900',
     },
     info: {
         padding: 12,

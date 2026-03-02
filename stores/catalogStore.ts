@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { getProducts, getCategories, Product, Category } from '@/services/api';
+import { getProducts, getCategories, getActiveOffers, Product, Category, Oferta } from '@/services/api';
 
 interface CatalogState {
     // Data
     products: Product[];
     categories: Category[];
+    offers: Oferta[]; // New
 
     // Filters
     selectedCategory: number | null;
@@ -31,6 +32,7 @@ interface CatalogState {
 export const useCatalogStore = create<CatalogState>((set, get) => ({
     products: [],
     categories: [],
+    offers: [],
     selectedCategory: null,
     searchQuery: '',
     page: 1,
@@ -42,7 +44,6 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     fetchProducts: async (reset = false) => {
         const state = get();
 
-        // Prevent duplicate requests
         if (state.loading || state.loadingMore) return;
 
         const page = reset ? 1 : state.page;
@@ -53,10 +54,16 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
             if (state.searchQuery.length >= 2) params.search = state.searchQuery;
             if (state.selectedCategory) params.category = state.selectedCategory;
 
-            const data = await getProducts(params as any);
+            // Fetch products and optionally offers on first page
+            const offersPromise = (reset && page === 1) ? getActiveOffers() : Promise.resolve(state.offers);
+            const [data, fetchedOffers] = await Promise.all([
+                getProducts(params as any),
+                offersPromise
+            ]);
 
             set({
                 products: reset ? data.results : [...state.products, ...data.results],
+                offers: fetchedOffers,
                 hasMore: data.next !== null,
                 page: page + 1,
                 loading: false,

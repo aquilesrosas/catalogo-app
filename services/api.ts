@@ -182,6 +182,26 @@ export async function getStoreConfig(): Promise<StoreConfig> {
     return data;
 }
 
+// ─── Ofertas API ───
+export interface Oferta {
+    id: number;
+    nombre: string;
+    tipo: 'PORCENTAJE' | 'MONTO_FIJO' | 'N_X_M' | 'COMBO' | 'N_POR_MONTO';
+    valor: string;
+    es_global: boolean;
+    productos_ids: number[];
+}
+
+export async function getActiveOffers(): Promise<Oferta[]> {
+    try {
+        const { data } = await api.get('/ofertas/vigentes/');
+        return data;
+    } catch (e) {
+        console.warn("No se pudieron cargar las ofertas vigentes", e);
+        return [];
+    }
+}
+
 export async function createOrder(payload: CreateOrderPayload): Promise<OrderResponse> {
     const { data } = await api.post('orders/', payload);
     return data;
