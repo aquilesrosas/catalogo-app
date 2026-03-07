@@ -39,7 +39,7 @@ function ProductCard({ product }: ProductCardProps) {
 
     // Determine if product has an active offer
     const applicableOffer = offers.find(o =>
-        o.es_global || o.productos_ids.includes(product.id_producto)
+        o.es_global || (o.productos_ids && o.productos_ids.includes(product.id_producto))
     );
 
     return (

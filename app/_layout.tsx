@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { useRouter, useSegments, Redirect } from 'expo-router';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useConfigStore } from '@/stores/configStore';
 
 // ─── Cart Badge ──────────────────────────────
 function CartBadge() {
@@ -94,15 +95,19 @@ const headerStyles = StyleSheet.create({
 // ─── Error Boundary ──────────────────────────
 class ErrorBoundary extends React.Component<
     { children: React.ReactNode },
-    { hasError: boolean }
+    { hasError: boolean; errorMsg: string }
 > {
     constructor(props: { children: React.ReactNode }) {
         super(props);
-        this.state = { hasError: false };
+        this.state = { hasError: false, errorMsg: '' };
     }
 
-    static getDerivedStateFromError() {
-        return { hasError: true };
+    static getDerivedStateFromError(error: Error) {
+        return { hasError: true, errorMsg: error?.message || 'Error desconocido' };
+    }
+
+    componentDidCatch(error: Error, info: React.ErrorInfo) {
+        console.error('ErrorBoundary caught:', error, info);
     }
 
     render() {
@@ -111,9 +116,10 @@ class ErrorBoundary extends React.Component<
                 <View style={errorStyles.container}>
                     <Text style={errorStyles.icon}>😵</Text>
                     <Text style={errorStyles.title}>Algo salió mal</Text>
+                    <Text style={errorStyles.detail}>{this.state.errorMsg}</Text>
                     <Pressable
                         style={errorStyles.button}
-                        onPress={() => this.setState({ hasError: false })}
+                        onPress={() => this.setState({ hasError: false, errorMsg: '' })}
                     >
                         <Text style={errorStyles.buttonText}>Reintentar</Text>
                     </Pressable>
@@ -131,9 +137,11 @@ const errorStyles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: '#fff',
         gap: 16,
+        padding: 24,
     },
     icon: { fontSize: 48 },
     title: { fontSize: 18, fontWeight: '600', color: '#333' },
+    detail: { fontSize: 13, color: '#888', textAlign: 'center', maxWidth: 300 },
     button: {
         backgroundColor: '#1B5E20',
         paddingHorizontal: 24,
@@ -143,22 +151,74 @@ const errorStyles = StyleSheet.create({
     buttonText: { color: '#fff', fontWeight: '600' },
 });
 
-import { useConfigStore } from '@/stores/configStore';
-import { useSegments, Redirect } from 'expo-router';
+// ─── Hydration Loading Screen ────────────────
+function HydrationLoading() {
+    return (
+        <View style={hydrationStyles.container}>
+            <ActivityIndicator size="large" color="#1B5E20" />
+            <Text style={hydrationStyles.text}>Cargando...</Text>
+        </View>
+    );
+}
+
+const hydrationStyles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#1B5E20',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+    },
+    text: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+});
 
 // ─── Root Layout ─────────────────────────────
 export default function RootLayout() {
+    const [hasHydrated, setHasHydrated] = useState(false);
+
+    useEffect(() => {
+        // Wait for all persisted stores to hydrate
+        const unsub = useConfigStore.persist.onFinishHydration(() => {
+            setHasHydrated(true);
+        });
+
+        // If already hydrated (fast path)
+        if (useConfigStore.persist.hasHydrated()) {
+            setHasHydrated(true);
+        }
+
+        return () => {
+            if (typeof unsub === 'function') unsub();
+        };
+    }, []);
+
+    if (!hasHydrated) {
+        return <HydrationLoading />;
+    }
+
+    return (
+        <ErrorBoundary>
+            <RootLayoutContent />
+        </ErrorBoundary>
+    );
+}
+
+function RootLayoutContent() {
     const isConfigured = useConfigStore((s) => s.isConfigured());
     const segments = useSegments();
-    const router = useRouter(); // <-- Agregado para el FAB
+    const router = useRouter();
 
-    // Redirection logic using component for stability
+    // Redirect to config_setup if not configured
     if (!isConfigured && segments[0] !== 'config_setup') {
         return <Redirect href="/config_setup" />;
     }
 
     return (
-        <ErrorBoundary>
+        <>
             <StatusBar style="light" />
             <Stack
                 screenOptions={{
@@ -231,10 +291,17 @@ export default function RootLayout() {
                         headerBackTitle: 'Catálogo',
                     }}
                 />
+                <Stack.Screen
+                    name="kiosk"
+                    options={{
+                        headerShown: false,
+                        gestureEnabled: false,
+                    }}
+                />
             </Stack>
 
             {/* Global FAB Asesor Virtual */}
-            {isConfigured && segments[0] !== 'config_setup' && segments[0] !== 'chat' && (
+            {isConfigured && segments[0] !== 'config_setup' && segments[0] !== 'chat' && segments[0] !== 'kiosk' && (
                 <Pressable
                     onPress={() => router.push('/chat')}
                     style={fabStyles.fabContainer}
@@ -242,7 +309,7 @@ export default function RootLayout() {
                     <Text style={fabStyles.fabIcon}>🤖</Text>
                 </Pressable>
             )}
-        </ErrorBoundary>
+        </>
     );
 }
 
@@ -265,5 +332,5 @@ const fabStyles = StyleSheet.create({
     },
     fabIcon: {
         fontSize: 30,
-    }
+    },
 });

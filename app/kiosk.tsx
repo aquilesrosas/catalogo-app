@@ -1,0 +1,952 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    Pressable,
+    Modal,
+    TextInput,
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    useWindowDimensions,
+    StatusBar,
+    BackHandler,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useKioskStore } from '@/stores/kioskStore';
+import { useConfigStore } from '@/stores/configStore';
+import { useAuthStore } from '@/stores/authStore';
+import {
+    getProducts,
+    getCategories,
+    getPaymentMethods,
+    searchClients,
+    registerClient,
+    createKioskOrder,
+    Category,
+    Product,
+    PaymentMethodPublic,
+    KioskClient,
+} from '@/services/api';
+import { formatPrice } from '@/utils/format';
+
+// ─── Constants ───────────────────────────────
+const INACTIVITY_TIMEOUT = 60000; // 60 seconds
+const ADMIN_PIN = '2424'; // PIN para salir del kiosco
+const CONFIG_PIN = '1234'; // PIN para configurar categorías
+
+// ─── Main Kiosk Screen ──────────────────────
+export default function KioskScreen() {
+    const router = useRouter();
+    const { width } = useWindowDimensions();
+    const isTablet = width > 700;
+    const numColumns = isTablet ? (width > 900 ? 4 : 3) : 2;
+
+    // Store
+    const store = useKioskStore();
+    const kioskCategoryIds = useConfigStore((s) => s.kioskCategoryIds);
+    const setKioskCategoryIds = useConfigStore((s) => s.setKioskCategoryIds);
+    const { isLoggedIn, clientId, clientName, clientPhone } = useAuthStore();
+
+    // Smart checkout: auto-identify if already logged in
+    const handleStartCheckout = () => {
+        if (isLoggedIn() && clientId && clientName) {
+            store.startCheckout();
+            store.setSelectedClient({
+                id: clientId,
+                name: clientName,
+                phone: clientPhone || '',
+            });
+            store.setCheckoutStep('payment');
+        } else {
+            store.startCheckout();
+        }
+    };
+
+    // Data
+    const [products, setProducts] = useState<Product[]>([]);
+    const [allCategories, setAllCategories] = useState<Category[]>([]);
+    const [paymentMethods, setPaymentMethods] = useState<PaymentMethodPublic[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+
+    // Filtered categories for kiosk display
+    const filteredCategories = kioskCategoryIds.length > 0
+        ? allCategories.filter(c => kioskCategoryIds.includes(c.id_categoria))
+        : allCategories;
+
+    // Builder local state
+    const [builderQty, setBuilderQty] = useState(1);
+    const [builderNotes, setBuilderNotes] = useState('');
+
+    // Checkout local state
+    const [identityQuery, setIdentityQuery] = useState('');
+    const [searchingIdentity, setSearchingIdentity] = useState(false);
+    const [identityError, setIdentityError] = useState('');
+    const [regName, setRegName] = useState('');
+    const [regPhone, setRegPhone] = useState('');
+    const [creatingClient, setCreatingClient] = useState(false);
+
+    // Admin PIN modal
+    const [pinModalVisible, setPinModalVisible] = useState(false);
+    const [pinInput, setPinInput] = useState('');
+    const [pinAction, setPinAction] = useState<'exit' | 'config'>('exit');
+
+    // Config modal
+    const [configModalVisible, setConfigModalVisible] = useState(false);
+    const [tempCategoryIds, setTempCategoryIds] = useState<number[]>([]);
+
+    // Inactivity timer
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Block hardware back button inside kiosk
+    useEffect(() => {
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+            setPinModalVisible(true);
+            return true;
+        });
+        return () => sub.remove();
+    }, []);
+
+    // Auto-reset on inactivity
+    useEffect(() => {
+        const resetTimer = () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(() => {
+                store.resetKiosk();
+                setSelectedCategory(null);
+            }, INACTIVITY_TIMEOUT);
+        };
+
+        resetTimer();
+        const interval = setInterval(() => {
+            if (Date.now() - store.lastInteraction > INACTIVITY_TIMEOUT) {
+                store.resetKiosk();
+                setSelectedCategory(null);
+            }
+        }, 5000);
+
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            clearInterval(interval);
+        };
+    }, [store.lastInteraction]);
+
+    // Fetch data on mount
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [prods, cats, methods] = await Promise.all([
+                getProducts({ page: 1 }),
+                getCategories(),
+                getPaymentMethods(),
+            ]);
+            const allProds = prods.results || [];
+            const allCats = cats || [];
+            setAllCategories(allCats);
+            setPaymentMethods(methods && methods.length > 0 ? methods : [
+                { id_metodo_pago: -1, nombre_metodo: 'Efectivo', tipo: 'EFECTIVO' },
+                { id_metodo_pago: -2, nombre_metodo: 'Transferencia', tipo: 'TRANSFERENCIA' },
+                { id_metodo_pago: -3, nombre_metodo: 'Mixto', tipo: 'MIXTO' },
+            ] as any);
+
+            // Filter products by kiosk categories if configured
+            if (kioskCategoryIds.length > 0) {
+                const allowedNames = new Set(
+                    allCats.filter((c: any) => kioskCategoryIds.includes(c.id_categoria))
+                        .map((c: any) => c.nombre_categoria.toLowerCase())
+                );
+                setProducts(allProds.filter((p: any) =>
+                    p.category && allowedNames.has(p.category.toLowerCase())
+                ));
+            } else {
+                setProducts(allProds);
+            }
+        } catch (e) {
+            console.error('Error loading kiosk data:', e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Fetch products when category changes
+    useEffect(() => {
+        const fetchByCategory = async () => {
+            try {
+                const params: any = { page: 1 };
+                if (selectedCategory) params.category = selectedCategory;
+                const data = await getProducts(params);
+                const allProds = data.results || [];
+
+                // Filter by kiosk categories (by name match)
+                if (kioskCategoryIds.length > 0 && !selectedCategory) {
+                    const allowedNames = new Set(
+                        allCategories.filter(c => kioskCategoryIds.includes(c.id_categoria))
+                            .map(c => c.nombre_categoria.toLowerCase())
+                    );
+                    setProducts(allProds.filter((p: any) =>
+                        p.category && allowedNames.has(p.category.toLowerCase())
+                    ));
+                } else {
+                    setProducts(allProds);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        fetchByCategory();
+    }, [selectedCategory]);
+
+    // ─── Handlers ────────────────────────────
+    const handleAddToCart = () => {
+        if (!store.builderProduct) return;
+        store.addToCart(store.builderProduct, builderQty, builderNotes);
+        store.closeBuilder();
+        setBuilderQty(1);
+        setBuilderNotes('');
+    };
+
+    const handleIdentitySearch = async () => {
+        if (identityQuery.length < 2) {
+            setIdentityError('Ingresa al menos 2 caracteres.');
+            return;
+        }
+        setSearchingIdentity(true);
+        setIdentityError('');
+        try {
+            const results = await searchClients(identityQuery);
+            if (results && results.length > 0) {
+                store.setSelectedClient(results[0]);
+                store.setCheckoutStep('payment');
+            } else {
+                setRegName('');
+                setRegPhone(identityQuery);
+                store.setCheckoutStep('register');
+            }
+        } catch (e) {
+            setIdentityError('Error al buscar. Intentá de nuevo.');
+        } finally {
+            setSearchingIdentity(false);
+        }
+    };
+
+    const handleRegister = async () => {
+        if (!regName.trim()) {
+            Alert.alert('Error', 'Ingresá tu nombre.');
+            return;
+        }
+        if (!regPhone.trim()) {
+            Alert.alert('Error', 'Ingresá tu teléfono.');
+            return;
+        }
+        setCreatingClient(true);
+        try {
+            const client = await registerClient(regName.trim(), regPhone.trim());
+            store.setSelectedClient(client);
+            store.setCheckoutStep('payment');
+        } catch (e) {
+            Alert.alert('Error', 'No se pudo registrar. Intentá con otro teléfono.');
+        } finally {
+            setCreatingClient(false);
+        }
+    };
+
+    const handleConfirmOrder = async () => {
+        if (!store.selectedPaymentMethodId) return;
+
+        store.setOrderProcessing(true);
+        try {
+            const payload: any = {
+                payment_method_id: store.selectedPaymentMethodId,
+                items: store.cart.map((item) => ({
+                    product_id: item.product.id_producto,
+                    quantity: item.quantity,
+                    notes: item.notes || undefined,
+                })),
+            };
+            if (store.selectedClient) {
+                payload.client_id = store.selectedClient.id;
+            }
+
+            const result = await createKioskOrder(payload);
+
+            store.closeCheckout();
+
+            const name = store.selectedClient ? store.selectedClient.name.split(' ')[0] : '';
+            Alert.alert(
+                name ? `¡Gracias ${name}!` : '¡Pedido enviado!',
+                `${result.message}\n\nTotal: ${formatPrice(result.order.total)}`,
+                [{ text: 'Nuevo Pedido', onPress: () => store.resetKiosk() }]
+            );
+        } catch (e: any) {
+            Alert.alert('Error', 'No se pudo enviar el pedido.');
+        } finally {
+            store.setOrderProcessing(false);
+        }
+    };
+
+    const handlePinSubmit = () => {
+        const requiredPin = pinAction === 'config' ? CONFIG_PIN : ADMIN_PIN;
+        if (pinInput === requiredPin) {
+            setPinModalVisible(false);
+            setPinInput('');
+            if (pinAction === 'config') {
+                setTempCategoryIds([...kioskCategoryIds]);
+                setConfigModalVisible(true);
+            } else {
+                store.resetKiosk();
+                router.back();
+            }
+        } else {
+            Alert.alert('PIN incorrecto', 'El PIN ingresado no es válido.');
+            setPinInput('');
+        }
+    };
+
+    const openPinModal = (action: 'exit' | 'config') => {
+        setPinAction(action);
+        setPinInput('');
+        setPinModalVisible(true);
+    };
+
+    const handleSaveConfig = () => {
+        setKioskCategoryIds(tempCategoryIds);
+        setConfigModalVisible(false);
+        // Reload products with new filter
+        fetchData();
+    };
+
+    const toggleCategoryId = (id: number) => {
+        setTempCategoryIds((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        );
+    };
+
+    const renderProduct = ({ item }: { item: Product }) => {
+        const price = parseFloat(item.price || '0');
+        const hasNumericStock = item.stock !== undefined && item.stock !== null;
+        const stockNum = hasNumericStock ? parseFloat(item.stock) : 0;
+        const stockColor = item.stock_level === 'out_of_stock' ? '#F44336' : item.stock_level === 'low' ? '#FF9800' : '#4CAF50';
+        const stockLabel = !item.in_stock
+            ? 'Agotado'
+            : hasNumericStock && stockNum > 0
+                ? `${stockNum % 1 === 0 ? stockNum.toFixed(0) : stockNum.toFixed(1)} ${item.unit || 'u'}`
+                : item.stock_level === 'low' ? 'Últimas unidades' : 'Disponible';
+        return (
+            <Pressable
+                style={[s.productCard, { width: `${(100 / numColumns) - 3}%` as any }, !item.in_stock && s.productOutOfStock]}
+                onPress={() => {
+                    if (!item.in_stock) return;
+                    store.touchInteraction();
+                    store.openBuilder(item);
+                    setBuilderQty(1);
+                    setBuilderNotes('');
+                }}
+            >
+                <View style={s.productImgPlaceholder}>
+                    <Text style={s.productEmoji}>🍔</Text>
+                    <View style={s.productUnitBadge}>
+                        <Text style={s.productUnitText}>{item.unit || 'Unid'}</Text>
+                    </View>
+                    <View style={[s.productStockBadge, { backgroundColor: stockColor }]}>
+                        <Text style={s.productStockText}>{stockLabel}</Text>
+                    </View>
+                </View>
+                <View style={s.productInfo}>
+                    <Text style={s.productName} numberOfLines={2}>{item.nombre_producto}</Text>
+                    <Text style={[s.productPrice, !item.in_stock && { color: '#666' }]}>{formatPrice(price)}</Text>
+                </View>
+                {item.in_stock && (
+                    <View style={s.addBtnSmall}>
+                        <Text style={s.addBtnSmallText}>+</Text>
+                    </View>
+                )}
+            </Pressable>
+        );
+    };
+
+    // ─── Main Render ─────────────────────────
+    if (loading) {
+        return (
+            <View style={s.loadingContainer}>
+                <ActivityIndicator size="large" color="#FF9100" />
+                <Text style={s.loadingText}>Cargando menú...</Text>
+            </View>
+        );
+    }
+
+    return (
+        <View style={s.container}>
+            <StatusBar hidden />
+
+            {/* ─── Header ─────────────────── */}
+            <View style={s.header}>
+                <Pressable
+                    style={s.logoBtn}
+                    onLongPress={() => {
+                        store.touchInteraction();
+                        openPinModal('exit');
+                    }}
+                    delayLongPress={2000}
+                >
+                    <Text style={s.logoEmoji}>🍔</Text>
+                </Pressable>
+                <Pressable
+                    style={s.closeBtn}
+                    onPress={() => {
+                        store.touchInteraction();
+                        openPinModal('exit');
+                    }}
+                >
+                    <Text style={s.closeBtnText}>✕</Text>
+                </Pressable>
+            </View>
+
+            {/* ─── Hero ───────────────────── */}
+            <View style={s.hero}>
+                <Text style={s.heroLine1}>¿Qué vas a</Text>
+                <Text style={s.heroLine2}>pedir hoy?</Text>
+            </View>
+
+            {/* ─── Categories ─────────────── */}
+            <View style={s.categoriesContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.categoriesScroll}>
+                    <Pressable
+                        style={[s.categoryChip, !selectedCategory && s.categoryChipActive]}
+                        onPress={() => { store.touchInteraction(); setSelectedCategory(null); }}
+                    >
+                        <Text style={[s.categoryText, !selectedCategory && s.categoryTextActive]}>Todo</Text>
+                    </Pressable>
+                    {filteredCategories.map((cat) => (
+                        <Pressable
+                            key={cat.id_categoria}
+                            style={[s.categoryChip, selectedCategory === cat.id_categoria && s.categoryChipActive]}
+                            onPress={() => { store.touchInteraction(); setSelectedCategory(cat.id_categoria); }}
+                        >
+                            <Text style={[s.categoryText, selectedCategory === cat.id_categoria && s.categoryTextActive]}>
+                                {cat.nombre_categoria}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </ScrollView>
+            </View>
+
+            {/* ─── Products Grid ──────────── */}
+            <FlatList
+                key={`grid-${numColumns}`}
+                data={products}
+                numColumns={numColumns}
+                keyExtractor={(item) => item.id_producto.toString()}
+                contentContainerStyle={s.gridContent}
+                columnWrapperStyle={s.gridRow}
+                renderItem={renderProduct}
+                onScrollBeginDrag={() => store.touchInteraction()}
+                ListEmptyComponent={
+                    <View style={s.emptyContainer}>
+                        <Text style={s.emptyEmoji}>🍽️</Text>
+                        <Text style={s.emptyText}>No hay productos disponibles</Text>
+                    </View>
+                }
+            />
+
+            {/* ─── Floating Cart Bar ─────── */}
+            {store.cart.length > 0 && (
+                <View style={s.cartBar}>
+                    <View style={s.cartBarLeft}>
+                        <View style={s.cartBadge}>
+                            <Text style={s.cartBadgeText}>{store.getCartCount()}</Text>
+                        </View>
+                        <View>
+                            <Text style={s.cartBarTitle}>Tu Pedido</Text>
+                            <Text style={s.cartBarTotal}>{formatPrice(store.getCartTotal())}</Text>
+                        </View>
+                    </View>
+                    <Pressable
+                        style={s.payBtn}
+                        onPress={() => { store.touchInteraction(); handleStartCheckout(); }}
+                    >
+                        <Text style={s.payBtnText}>Pagar Ahora</Text>
+                    </Pressable>
+                </View>
+            )}
+
+            {/* ─── Builder Modal ──────────── */}
+            <Modal visible={store.builderVisible} animationType="slide" presentationStyle="pageSheet">
+                <View style={s.modalDark}>
+                    {store.builderProduct && (
+                        <>
+                            <View style={s.builderHeader}>
+                                <Text style={s.builderEmoji}>🍔</Text>
+                                <Pressable style={s.modalCloseBtn} onPress={() => store.closeBuilder()}>
+                                    <Text style={s.modalCloseBtnText}>✕</Text>
+                                </Pressable>
+                            </View>
+
+                            <ScrollView style={s.builderBody}>
+                                <Text style={s.builderName}>{store.builderProduct.nombre_producto}</Text>
+                                <Text style={s.builderPrice}>
+                                    {formatPrice(store.builderProduct.price || store.builderProduct.precio_venta)}
+                                </Text>
+
+                                {/* Notes */}
+                                <Text style={s.sectionLabel}>Notas / Personalización</Text>
+                                <TextInput
+                                    style={s.notesInput}
+                                    placeholder="Ej: Sin cebolla, extra salsa..."
+                                    placeholderTextColor="#555"
+                                    value={builderNotes}
+                                    onChangeText={(t) => { store.touchInteraction(); setBuilderNotes(t); }}
+                                    multiline
+                                />
+
+                                {/* Quantity */}
+                                <View style={s.qtyRow}>
+                                    <Text style={s.qtyLabel}>Cantidad</Text>
+                                    <View style={s.qtyControls}>
+                                        <Pressable
+                                            style={s.qtyBtn}
+                                            onPress={() => { store.touchInteraction(); setBuilderQty(Math.max(1, builderQty - 1)); }}
+                                        >
+                                            <Text style={s.qtyBtnText}>−</Text>
+                                        </Pressable>
+                                        <Text style={s.qtyValue}>{builderQty}</Text>
+                                        <Pressable
+                                            style={s.qtyBtn}
+                                            onPress={() => { store.touchInteraction(); setBuilderQty(builderQty + 1); }}
+                                        >
+                                            <Text style={s.qtyBtnText}>+</Text>
+                                        </Pressable>
+                                    </View>
+                                </View>
+                            </ScrollView>
+
+                            {/* Add Button */}
+                            <View style={s.builderFooter}>
+                                <Pressable style={s.addCartBtn} onPress={handleAddToCart}>
+                                    <Text style={s.addCartBtnText}>
+                                        Agregar • {formatPrice(
+                                            (parseFloat(store.builderProduct.price || store.builderProduct.precio_venta || '0')) * builderQty
+                                        )}
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        </>
+                    )}
+                </View>
+            </Modal>
+
+            {/* ─── Checkout Modal ─────────── */}
+            <Modal
+                visible={store.checkoutVisible}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => store.closeCheckout()}
+            >
+                <View style={s.modalDark}>
+                    {/* Checkout Header */}
+                    <View style={s.checkoutHeader}>
+                        <Text style={s.checkoutTitle}>
+                            {store.checkoutStep === 'payment' ? '💳 Pago' : '👤 Identificación'}
+                        </Text>
+                        <Pressable style={s.modalCloseBtn} onPress={() => store.closeCheckout()}>
+                            <Text style={s.modalCloseBtnText}>✕</Text>
+                        </Pressable>
+                    </View>
+
+                    {/* Step 1: Identify */}
+                    {store.checkoutStep === 'identify' && (
+                        <View style={s.checkoutCenter}>
+                            <Text style={s.identifyHint}>Ingresá tu nombre o teléfono</Text>
+                            <TextInput
+                                style={s.identifyInput}
+                                placeholder="Nombre o Teléfono"
+                                placeholderTextColor="#555"
+                                value={identityQuery}
+                                onChangeText={(t) => { store.touchInteraction(); setIdentityQuery(t); }}
+                                autoFocus
+                            />
+                            {identityError ? <Text style={s.errorText}>{identityError}</Text> : null}
+                            <Pressable
+                                style={s.continueBtn}
+                                onPress={handleIdentitySearch}
+                                disabled={searchingIdentity}
+                            >
+                                {searchingIdentity ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={s.continueBtnText}>Buscar</Text>
+                                )}
+                            </Pressable>
+                            <Pressable
+                                style={s.skipIdentifyBtn}
+                                onPress={() => {
+                                    store.touchInteraction();
+                                    store.setSelectedClient(null);
+                                    store.setCheckoutStep('payment');
+                                }}
+                            >
+                                <Text style={s.skipIdentifyText}>Pedir sin identificarse →</Text>
+                            </Pressable>
+                        </View>
+                    )}
+
+                    {/* Step 2: Register */}
+                    {store.checkoutStep === 'register' && (
+                        <View style={s.checkoutCenter}>
+                            <Text style={s.registerIcon}>👋</Text>
+                            <Text style={s.registerTitle}>¡Bienvenido!</Text>
+                            <Text style={s.registerSubtitle}>No te encontramos. Registrate rápido.</Text>
+
+                            <TextInput
+                                style={s.regInput}
+                                placeholder="Tu Nombre Completo"
+                                placeholderTextColor="#555"
+                                value={regName}
+                                onChangeText={(t) => { store.touchInteraction(); setRegName(t); }}
+                            />
+                            <TextInput
+                                style={s.regInput}
+                                placeholder="Teléfono"
+                                placeholderTextColor="#555"
+                                value={regPhone}
+                                onChangeText={(t) => { store.touchInteraction(); setRegPhone(t); }}
+                                keyboardType="phone-pad"
+                            />
+                            <Pressable
+                                style={s.continueBtn}
+                                onPress={handleRegister}
+                                disabled={creatingClient}
+                            >
+                                {creatingClient ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={s.continueBtnText}>Crear y Continuar</Text>
+                                )}
+                            </Pressable>
+                            <Pressable
+                                style={s.backLink}
+                                onPress={() => { store.touchInteraction(); store.setCheckoutStep('identify'); }}
+                            >
+                                <Text style={s.backLinkText}>← Volver a buscar</Text>
+                            </Pressable>
+                        </View>
+                    )}
+
+                    {/* Step 3: Payment */}
+                    {store.checkoutStep === 'payment' && (
+                        <ScrollView style={s.paymentScroll}>
+                            {/* Client Info (if identified) */}
+                            {store.selectedClient && (
+                                <View style={s.clientCard}>
+                                    <Text style={s.clientIcon}>👤</Text>
+                                    <View>
+                                        <Text style={s.clientName}>{store.selectedClient.name}</Text>
+                                        <Text style={s.clientPhone}>{store.selectedClient.phone}</Text>
+                                    </View>
+                                </View>
+                            )}
+                            {!store.selectedClient && (
+                                <View style={s.clientCard}>
+                                    <Text style={s.clientIcon}>👤</Text>
+                                    <View>
+                                        <Text style={s.clientName}>Pedído anónimo</Text>
+                                        <Text style={s.clientPhone}>Sin identificación</Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            <Text style={s.paymentTitle}>Seleccioná cómo pagar</Text>
+
+                            {paymentMethods.map((method) => {
+                                const isActive = store.selectedPaymentMethodId === method.id_metodo_pago;
+                                return (
+                                    <Pressable
+                                        key={method.id_metodo_pago}
+                                        style={[s.paymentOption, isActive && s.paymentOptionActive]}
+                                        onPress={() => {
+                                            store.touchInteraction();
+                                            store.setSelectedPaymentMethodId(method.id_metodo_pago);
+                                        }}
+                                    >
+                                        <Text style={[s.paymentOptionText, isActive && s.paymentOptionTextActive]}>
+                                            {method.nombre_metodo}
+                                        </Text>
+                                        {isActive && <Text style={s.checkIcon}>✓</Text>}
+                                    </Pressable>
+                                );
+                            })}
+
+                            {/* Total + Confirm */}
+                            <View style={s.totalSection}>
+                                <View style={s.totalRow}>
+                                    <Text style={s.totalLabel}>Total a Pagar</Text>
+                                    <Text style={s.totalValue}>{formatPrice(store.getCartTotal())}</Text>
+                                </View>
+                                <Pressable
+                                    style={[
+                                        s.confirmBtn,
+                                        !store.selectedPaymentMethodId && s.confirmBtnDisabled,
+                                    ]}
+                                    onPress={handleConfirmOrder}
+                                    disabled={store.orderProcessing || !store.selectedPaymentMethodId}
+                                >
+                                    {store.orderProcessing ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={s.confirmBtnText}>CONFIRMAR PEDIDO</Text>
+                                    )}
+                                </Pressable>
+                            </View>
+                        </ScrollView>
+                    )}
+                </View>
+            </Modal>
+
+            {/* ─── Admin PIN Modal ────────── */}
+            <Modal visible={pinModalVisible} transparent animationType="fade">
+                <View style={s.pinOverlay}>
+                    <View style={s.pinCard}>
+                        <Text style={s.pinTitle}>
+                            {pinAction === 'config' ? '⚙️ Configuración' : '🔒 PIN Admin'}
+                        </Text>
+                        <Text style={s.pinSubtitle}>
+                            {pinAction === 'config'
+                                ? 'Ingresá el PIN de configuración'
+                                : 'Ingresá el PIN para salir del kiosco'}
+                        </Text>
+                        <TextInput
+                            style={s.pinInput}
+                            placeholder="PIN"
+                            placeholderTextColor="#999"
+                            value={pinInput}
+                            onChangeText={setPinInput}
+                            secureTextEntry
+                            keyboardType="number-pad"
+                            maxLength={6}
+                            autoFocus
+                        />
+                        <View style={s.pinActions}>
+                            <Pressable
+                                style={s.pinCancelBtn}
+                                onPress={() => { setPinModalVisible(false); setPinInput(''); }}
+                            >
+                                <Text style={s.pinCancelText}>Cancelar</Text>
+                            </Pressable>
+                            <Pressable style={s.pinConfirmBtn} onPress={handlePinSubmit}>
+                                <Text style={s.pinConfirmText}>
+                                    {pinAction === 'config' ? 'Entrar' : 'Salir'}
+                                </Text>
+                            </Pressable>
+                        </View>
+                        {pinAction === 'exit' && (
+                            <Pressable
+                                style={s.configLink}
+                                onPress={() => {
+                                    setPinModalVisible(false);
+                                    setPinInput('');
+                                    openPinModal('config');
+                                }}
+                            >
+                                <Text style={s.configLinkText}>⚙️ Configurar Categorías</Text>
+                            </Pressable>
+                        )}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ─── Config Modal ────────────── */}
+            <Modal visible={configModalVisible} animationType="slide" presentationStyle="pageSheet">
+                <View style={s.modalDark}>
+                    <View style={s.checkoutHeader}>
+                        <Text style={s.checkoutTitle}>⚙️ Categorías del Kiosco</Text>
+                        <Pressable style={s.modalCloseBtn} onPress={() => setConfigModalVisible(false)}>
+                            <Text style={s.modalCloseBtnText}>✕</Text>
+                        </Pressable>
+                    </View>
+                    <Text style={s.configHint}>Seleccioná qué categorías se muestran. Si no seleccionás ninguna, se muestran todas.</Text>
+                    <ScrollView style={s.paymentScroll}>
+                        {allCategories.map((cat) => {
+                            const isSelected = tempCategoryIds.includes(cat.id_categoria);
+                            return (
+                                <Pressable
+                                    key={cat.id_categoria}
+                                    style={[s.paymentOption, isSelected && s.paymentOptionActive]}
+                                    onPress={() => toggleCategoryId(cat.id_categoria)}
+                                >
+                                    <Text style={[s.paymentOptionText, isSelected && s.paymentOptionTextActive]}>
+                                        {cat.nombre_categoria}
+                                    </Text>
+                                    {isSelected && <Text style={s.checkIcon}>✓</Text>}
+                                </Pressable>
+                            );
+                        })}
+                    </ScrollView>
+                    <View style={s.builderFooter}>
+                        <Pressable style={s.addCartBtn} onPress={handleSaveConfig}>
+                            <Text style={s.addCartBtnText}>
+                                {tempCategoryIds.length > 0
+                                    ? `Guardar (${tempCategoryIds.length} categorías)`
+                                    : 'Guardar (Mostrar todas)'}
+                            </Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
+        </View>
+    );
+}
+
+// ─── Styles ──────────────────────────────────
+const s = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#121212' },
+    loadingContainer: { flex: 1, backgroundColor: '#121212', alignItems: 'center', justifyContent: 'center', gap: 16 },
+    loadingText: { color: '#888', fontSize: 16 },
+
+    // Header
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 8 },
+    logoBtn: { padding: 4 },
+    logoEmoji: { fontSize: 32 },
+    closeBtn: { backgroundColor: '#222', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    closeBtnText: { color: '#666', fontSize: 18 },
+
+    // Hero
+    hero: { paddingHorizontal: 24, marginBottom: 20 },
+    heroLine1: { fontSize: 34, fontWeight: '800', color: '#fff' },
+    heroLine2: { fontSize: 34, fontWeight: '800', color: '#FF9100' },
+
+    // Categories
+    categoriesContainer: { marginBottom: 16 },
+    categoriesScroll: { paddingHorizontal: 24, gap: 10 },
+    categoryChip: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, backgroundColor: '#1E1E1E', borderWidth: 1, borderColor: '#333' },
+    categoryChipActive: { backgroundColor: '#FF9100', borderColor: '#FF9100' },
+    categoryText: { color: '#888', fontWeight: '700', fontSize: 14 },
+    categoryTextActive: { color: '#fff' },
+
+    // Grid
+    gridContent: { paddingHorizontal: 12, paddingBottom: 140 },
+    gridRow: { justifyContent: 'flex-start', gap: 10, marginBottom: 10 },
+
+    // Product Card
+    productCard: { backgroundColor: '#1E1E1E', borderRadius: 20, overflow: 'hidden', position: 'relative' },
+    productImgPlaceholder: { height: 110, backgroundColor: '#282828', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+    productEmoji: { fontSize: 48, opacity: 0.4 },
+    productUnitBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+    productUnitText: { fontSize: 10, fontWeight: '700', color: '#000' },
+    productStockBadge: { position: 'absolute', bottom: 8, left: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+    productStockText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+    productOutOfStock: { opacity: 0.5 },
+    productInfo: { padding: 12 },
+    productName: { color: '#fff', fontWeight: '700', fontSize: 14, lineHeight: 18, marginBottom: 6 },
+    productPrice: { color: '#FF9100', fontWeight: '800', fontSize: 18 },
+    addBtnSmall: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#FF9100', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    addBtnSmallText: { color: '#fff', fontSize: 20, fontWeight: '700', lineHeight: 22 },
+
+    // Empty
+    emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+    emptyEmoji: { fontSize: 64, marginBottom: 12 },
+    emptyText: { color: '#666', fontSize: 16 },
+
+    // Cart Bar
+    cartBar: { position: 'absolute', bottom: 50, left: 20, right: 20, backgroundColor: '#fff', borderRadius: 24, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.25, shadowRadius: 12 },
+    cartBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    cartBadge: { backgroundColor: '#121212', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    cartBadgeText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+    cartBarTitle: { color: '#000', fontWeight: '700', fontSize: 16 },
+    cartBarTotal: { color: '#666', fontWeight: '700', fontSize: 18 },
+    payBtn: { backgroundColor: '#FF9100', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 16 },
+    payBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+
+    // Modal Dark
+    modalDark: { flex: 1, backgroundColor: '#121212' },
+
+    // Builder
+    builderHeader: { height: 220, backgroundColor: '#1E1E1E', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+    builderEmoji: { fontSize: 100, opacity: 0.3 },
+    modalCloseBtn: { position: 'absolute', top: 16, right: 16, backgroundColor: 'rgba(0,0,0,0.5)', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    modalCloseBtnText: { color: '#fff', fontSize: 18 },
+    builderBody: { flex: 1, padding: 24 },
+    builderName: { fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 8 },
+    builderPrice: { fontSize: 24, fontWeight: '800', color: '#FF9100', marginBottom: 24 },
+    sectionLabel: { color: '#888', fontWeight: '700', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
+    notesInput: { backgroundColor: '#1E1E1E', color: '#fff', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#333', fontSize: 16, minHeight: 80, textAlignVertical: 'top', marginBottom: 24 },
+
+    // Quantity
+    qtyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E1E1E', padding: 16, borderRadius: 16, marginBottom: 40 },
+    qtyLabel: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+    qtyBtn: { backgroundColor: '#333', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    qtyBtnText: { color: '#fff', fontSize: 22, fontWeight: '700' },
+    qtyValue: { color: '#fff', fontSize: 20, fontWeight: '800', minWidth: 30, textAlign: 'center' },
+
+    // Builder Footer
+    builderFooter: { padding: 20, borderTopWidth: 1, borderTopColor: '#222' },
+    addCartBtn: { backgroundColor: '#fff', padding: 18, borderRadius: 18, alignItems: 'center' },
+    addCartBtnText: { color: '#000', fontWeight: '800', fontSize: 18 },
+
+    // Checkout
+    checkoutHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingTop: 20 },
+    checkoutTitle: { color: '#fff', fontSize: 28, fontWeight: '800' },
+    checkoutCenter: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
+
+    // Identify
+    identifyHint: { color: '#888', fontSize: 16, textAlign: 'center', marginBottom: 16 },
+    identifyInput: { backgroundColor: '#1E1E1E', color: '#fff', fontWeight: '700', fontSize: 22, padding: 20, borderRadius: 18, textAlign: 'center', borderWidth: 1, borderColor: '#333', marginBottom: 12 },
+    errorText: { color: '#FF5252', textAlign: 'center', marginBottom: 12, fontSize: 14 },
+    continueBtn: { backgroundColor: '#FF9100', paddingVertical: 18, borderRadius: 18, alignItems: 'center', marginTop: 8 },
+    continueBtnText: { color: '#fff', fontWeight: '800', fontSize: 18 },
+
+    // Register
+    registerIcon: { fontSize: 56, textAlign: 'center', marginBottom: 12 },
+    registerTitle: { color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center' },
+    registerSubtitle: { color: '#888', textAlign: 'center', marginBottom: 24, fontSize: 14 },
+    regInput: { backgroundColor: '#1E1E1E', color: '#fff', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: '#333', fontSize: 16, marginBottom: 12 },
+    backLink: { alignItems: 'center', paddingVertical: 12, marginTop: 8 },
+    backLinkText: { color: '#666', fontSize: 14 },
+
+    // Payment
+    paymentScroll: { flex: 1, paddingHorizontal: 24 },
+    clientCard: { backgroundColor: '#1E1E1E', padding: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 24 },
+    clientIcon: { fontSize: 28 },
+    clientName: { color: '#fff', fontWeight: '700', fontSize: 18 },
+    clientPhone: { color: '#888', fontSize: 14 },
+    paymentTitle: { color: '#fff', fontSize: 20, fontWeight: '800', marginBottom: 16 },
+    paymentOption: { padding: 20, marginBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: '#333', backgroundColor: '#1E1E1E', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    paymentOptionActive: { backgroundColor: '#FF9100', borderColor: '#FF9100' },
+    paymentOptionText: { color: '#ccc', fontSize: 18, fontWeight: '700' },
+    paymentOptionTextActive: { color: '#fff' },
+    checkIcon: { color: '#fff', fontSize: 20, fontWeight: '800' },
+
+    // Total + Confirm
+    totalSection: { paddingTop: 20, borderTopWidth: 1, borderTopColor: '#222', marginTop: 16, paddingBottom: 40 },
+    totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    totalLabel: { color: '#888', fontSize: 16 },
+    totalValue: { color: '#fff', fontWeight: '800', fontSize: 28 },
+    confirmBtn: { backgroundColor: '#2E7D32', paddingVertical: 20, borderRadius: 18, alignItems: 'center' },
+    confirmBtnDisabled: { backgroundColor: '#333' },
+    confirmBtnText: { color: '#fff', fontWeight: '800', fontSize: 18, letterSpacing: 1 },
+
+    // PIN Modal
+    pinOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' },
+    pinCard: { backgroundColor: '#1E1E1E', borderRadius: 24, padding: 32, width: 320, alignItems: 'center' },
+    pinTitle: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 8 },
+    pinSubtitle: { color: '#888', fontSize: 14, textAlign: 'center', marginBottom: 20 },
+    pinInput: { backgroundColor: '#282828', color: '#fff', fontSize: 24, fontWeight: '800', padding: 16, borderRadius: 14, width: '100%', textAlign: 'center', borderWidth: 1, borderColor: '#444', marginBottom: 20 },
+    pinActions: { flexDirection: 'row', gap: 12, width: '100%' },
+    pinCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#333' },
+    pinCancelText: { color: '#ccc', fontWeight: '700', fontSize: 16 },
+    pinConfirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#D32F2F' },
+    pinConfirmText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+
+    // Config
+    configLink: { alignItems: 'center', paddingVertical: 12, marginTop: 8 },
+    configLinkText: { color: '#FF9100', fontSize: 14, fontWeight: '600' },
+    configHint: { color: '#888', fontSize: 14, paddingHorizontal: 24, marginBottom: 16 },
+    skipIdentifyBtn: { alignItems: 'center', paddingVertical: 14, marginTop: 8 },
+    skipIdentifyText: { color: '#FF9100', fontSize: 15, fontWeight: '600' },
+});

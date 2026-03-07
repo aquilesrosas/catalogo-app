@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useCatalogStore } from '@/stores/catalogStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useConfigStore } from '@/stores/configStore';
 import ProductCard from '@/components/ProductCard';
 import CategoryChips from '@/components/CategoryChips';
 import SearchBar from '@/components/SearchBar';
@@ -36,6 +37,7 @@ export default function HomeScreen() {
     } = useCatalogStore();
     const { isLoggedIn } = useAuthStore();
     const router = useRouter();
+    const kioskTitle = useConfigStore((s) => s.kioskTitle);
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const showBanner = !isLoggedIn() && !bannerDismissed;
 
@@ -84,6 +86,22 @@ export default function HomeScreen() {
                     </Pressable>
                 </Pressable>
             )}
+
+            {/* Kiosk Mode Button */}
+            <Pressable
+                style={styles.kioskBanner}
+                onPress={() => router.push('/kiosk')}
+            >
+                <View style={styles.kioskContent}>
+                    <Text style={styles.kioskEmoji}>🍔</Text>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.kioskTitle}>{kioskTitle || '🍔 Pedir Comida'}</Text>
+                        <Text style={styles.kioskSubtitle}>Tocá para hacer tu pedido</Text>
+                    </View>
+                    <Text style={styles.kioskArrow}>›</Text>
+                </View>
+            </Pressable>
+
             <SearchBar value={searchQuery} onSearch={setSearch} />
             <CategoryChips
                 categories={categories}
@@ -217,5 +235,42 @@ const styles = StyleSheet.create({
         color: '#A5D6A7',
         fontSize: 18,
         fontWeight: '600',
+    },
+    // ─── Kiosk Banner ───
+    kioskBanner: {
+        marginHorizontal: 16,
+        marginTop: 10,
+        marginBottom: 4,
+        backgroundColor: '#121212',
+        borderRadius: 14,
+        padding: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        elevation: 5,
+    },
+    kioskContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    kioskEmoji: {
+        fontSize: 28,
+    },
+    kioskTitle: {
+        color: '#FF9100',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    kioskSubtitle: {
+        color: '#888',
+        fontSize: 12,
+        marginTop: 2,
+    },
+    kioskArrow: {
+        color: '#FF9100',
+        fontSize: 28,
+        fontWeight: '300',
     },
 });

@@ -300,7 +300,7 @@ export default function LoginScreen() {
                     )}
 
                     {step === 'logged_in' && (
-                        <View style={styles.formArea}>
+                        <ScrollView style={styles.loggedInScroll} contentContainerStyle={styles.loggedInContent} showsVerticalScrollIndicator={false}>
                             <View style={styles.profileCard}>
                                 <View style={styles.profileInitials}>
                                     <Text style={styles.profileInitialsText}>{(clientName || '?')[0].toUpperCase()}</Text>
@@ -317,14 +317,6 @@ export default function LoginScreen() {
                             <Pressable style={styles.ordersBtn} onPress={() => router.push('/orders')}>
                                 <Text style={styles.ordersBtnText}>📄 Mis Pedidos</Text>
                             </Pressable>
-                            <Pressable style={styles.logoutBtn} onPress={handleLogout}>
-                                <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
-                            </Pressable>
-
-                            <View style={styles.separatorArea}>
-                                <View style={styles.separator} />
-                            </View>
-
                             <Pressable
                                 style={styles.changeConfigBtn}
                                 onPress={() => {
@@ -347,7 +339,10 @@ export default function LoginScreen() {
                             >
                                 <Text style={styles.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
                             </Pressable>
-                        </View>
+                            <Pressable style={styles.logoutBtn} onPress={handleLogout}>
+                                <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
+                            </Pressable>
+                        </ScrollView>
                     )}
                 </Animated.View>
             </KeyboardAvoidingView>
@@ -662,6 +657,13 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         textAlign: 'center',
+    },
+    loggedInScroll: {
+        flex: 1,
+    },
+    loggedInContent: {
+        paddingBottom: 40,
+        gap: 12,
     },
     changeConfigBtn: {
         paddingVertical: 12,

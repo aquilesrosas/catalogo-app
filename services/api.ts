@@ -59,7 +59,9 @@ export interface Product {
     nombre_producto: string;
     codigo_barra: string | null;
     category: string;
+    category_id: number;
     price: string;
+    stock: string;
     stock_level: 'available' | 'low' | 'out_of_stock';
     in_stock: boolean;
     image_url: string | null;
@@ -247,4 +249,77 @@ export async function registerAPI(name: string, phone: string, email: string, pa
     return data;
 }
 
+// ─── Kiosk API Functions ─────────────────────
+
+export interface PaymentMethodPublic {
+    id_metodo_pago: number;
+    nombre_metodo: string;
+    tipo: string;
+}
+
+export interface KioskClient {
+    id: number;
+    name: string;
+    phone: string;
+    points?: number;
+    total_orders?: number;
+    already_exists?: boolean;
+}
+
+export interface KioskOrderItem {
+    product_id: number;
+    quantity: number;
+    notes?: string;
+}
+
+export interface KioskOrderPayload {
+    client_id: number;
+    payment_method_id: number;
+    items: KioskOrderItem[];
+    notes?: string;
+}
+
+export interface KioskOrderResponse {
+    message: string;
+    order: {
+        id: number;
+        status: string;
+        total: string;
+        client_name: string;
+        items_count: number;
+        created_at: string;
+    };
+}
+
+export async function getPaymentMethods(): Promise<PaymentMethodPublic[]> {
+    try {
+        const { data } = await api.get('payment-methods/');
+        return data;
+    } catch (e) {
+        console.warn('Error fetching payment methods:', e);
+        return [];
+    }
+}
+
+export async function searchClients(query: string): Promise<KioskClient[]> {
+    try {
+        const { data } = await api.get('clients/search/', { params: { q: query } });
+        return data;
+    } catch (e) {
+        console.warn('Error searching clients:', e);
+        return [];
+    }
+}
+
+export async function registerClient(name: string, phone: string, email?: string): Promise<KioskClient> {
+    const { data } = await api.post('clients/register/', { name, phone, email });
+    return data;
+}
+
+export async function createKioskOrder(payload: KioskOrderPayload): Promise<KioskOrderResponse> {
+    const { data } = await api.post('kiosk-orders/', payload);
+    return data;
+}
+
 export default api;
+

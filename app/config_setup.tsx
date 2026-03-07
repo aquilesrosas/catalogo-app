@@ -49,7 +49,7 @@ function ConfigSetupScreen() {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
             <Stack.Screen options={{ title: 'Configuración Inicial', headerShown: false }} />
             <View style={styles.card}>
