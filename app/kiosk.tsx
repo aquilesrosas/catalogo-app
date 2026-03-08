@@ -14,7 +14,7 @@ import {
     StatusBar,
     BackHandler,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useKioskStore } from '@/stores/kioskStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -22,13 +22,11 @@ import {
     getProducts,
     getCategories,
     getPaymentMethods,
-    searchClients,
-    registerClient,
-    createKioskOrder,
+    searchClientsPublic,
+    registerClientPublic,
+    createOrder,
     Category,
     Product,
-    PaymentMethodPublic,
-    KioskClient,
 } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -46,9 +44,17 @@ export default function KioskScreen() {
 
     // Store
     const store = useKioskStore();
+    const params = useLocalSearchParams();
     const kioskCategoryIds = useConfigStore((s) => s.kioskCategoryIds);
     const setKioskCategoryIds = useConfigStore((s) => s.setKioskCategoryIds);
     const { isLoggedIn, clientId, clientName, clientPhone } = useAuthStore();
+
+    // Set kioskId from URL param (Table QR Ordering)
+    useEffect(() => {
+        if (params.kiosk && typeof params.kiosk === 'string') {
+            store.setKioskId(params.kiosk);
+        }
+    }, [params.kiosk]);
 
     // Smart checkout: auto-identify if already logged in
     const handleStartCheckout = () => {
@@ -68,7 +74,7 @@ export default function KioskScreen() {
     // Data
     const [products, setProducts] = useState<Product[]>([]);
     const [allCategories, setAllCategories] = useState<Category[]>([]);
-    const [paymentMethods, setPaymentMethods] = useState<PaymentMethodPublic[]>([]);
+    const [paymentMethods, setPaymentMethods] = useState<Array<{ id: string, name: string }>>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
@@ -150,11 +156,19 @@ export default function KioskScreen() {
             const allProds = prods.results || [];
             const allCats = cats || [];
             setAllCategories(allCats);
-            setPaymentMethods(methods && methods.length > 0 ? methods : [
-                { id_metodo_pago: -1, nombre_metodo: 'Efectivo', tipo: 'EFECTIVO' },
-                { id_metodo_pago: -2, nombre_metodo: 'Transferencia', tipo: 'TRANSFERENCIA' },
-                { id_metodo_pago: -3, nombre_metodo: 'Mixto', tipo: 'MIXTO' },
-            ] as any);
+            // For kiosk: only show Efectivo, Transferencia + always add Mixto
+            const KIOSK_TYPES = ['EFECTIVO', 'TRANSFERENCIA'];
+            const apiMethods = (methods || []).filter((m: any) => KIOSK_TYPES.includes(m.tipo));
+            // Always add Mixto option
+            const mixtoExists = apiMethods.some((m: any) => m.tipo === 'MIXTO');
+            const kioskMethods = [
+                ...(apiMethods.length > 0 ? apiMethods : [
+                    { id_metodo_pago: -1, nombre_metodo: 'Efectivo', tipo: 'EFECTIVO' },
+                    { id_metodo_pago: -2, nombre_metodo: 'Transferencia', tipo: 'TRANSFERENCIA' },
+                ]),
+                ...(!mixtoExists ? [{ id_metodo_pago: -3, nombre_metodo: 'Mixto (Efectivo + Transf.)', tipo: 'MIXTO' }] : []),
+            ];
+            setPaymentMethods(kioskMethods as any);
 
             // Filter products by kiosk categories if configured
             if (kioskCategoryIds.length > 0) {
@@ -220,9 +234,9 @@ export default function KioskScreen() {
         setSearchingIdentity(true);
         setIdentityError('');
         try {
-            const results = await searchClients(identityQuery);
+            const results = await searchClientsPublic(identityQuery);
             if (results && results.length > 0) {
-                store.setSelectedClient(results[0]);
+                store.setSelectedClient(results[0] as any);
                 store.setCheckoutStep('payment');
             } else {
                 setRegName('');
@@ -247,8 +261,8 @@ export default function KioskScreen() {
         }
         setCreatingClient(true);
         try {
-            const client = await registerClient(regName.trim(), regPhone.trim());
-            store.setSelectedClient(client);
+            const client = await registerClientPublic(regName.trim(), regPhone.trim());
+            store.setSelectedClient(client as any);
             store.setCheckoutStep('payment');
         } catch (e) {
             Alert.alert('Error', 'No se pudo registrar. Intentá con otro teléfono.');
@@ -263,7 +277,10 @@ export default function KioskScreen() {
         store.setOrderProcessing(true);
         try {
             const payload: any = {
-                payment_method_id: store.selectedPaymentMethodId,
+                source: store.kioskId ? 'table' : 'kiosk',
+                tipo_entrega: store.kioskId ? 'MESA' : 'LOCAL',
+                kiosk_id: store.kioskId || 'local-kiosco',
+                payment_method: store.selectedPaymentMethodId,
                 items: store.cart.map((item) => ({
                     product_id: item.product.id_producto,
                     quantity: item.quantity,
@@ -271,10 +288,10 @@ export default function KioskScreen() {
                 })),
             };
             if (store.selectedClient) {
-                payload.client_id = store.selectedClient.id;
+                payload.cliente_id = store.selectedClient.id;
             }
 
-            const result = await createKioskOrder(payload);
+            const result = await createOrder(payload);
 
             store.closeCheckout();
 
@@ -382,7 +399,10 @@ export default function KioskScreen() {
     }
 
     return (
-        <View style={s.container}>
+        <View
+            style={s.container}
+            onTouchStart={() => store.touchInteraction()}
+        >
             <StatusBar hidden />
 
             {/* ─── Header ─────────────────── */}
@@ -391,21 +411,34 @@ export default function KioskScreen() {
                     style={s.logoBtn}
                     onLongPress={() => {
                         store.touchInteraction();
-                        openPinModal('exit');
+                        store.resetKiosk();
+                        router.back();
                     }}
                     delayLongPress={2000}
                 >
                     <Text style={s.logoEmoji}>🍔</Text>
                 </Pressable>
-                <Pressable
-                    style={s.closeBtn}
-                    onPress={() => {
-                        store.touchInteraction();
-                        openPinModal('exit');
-                    }}
-                >
-                    <Text style={s.closeBtnText}>✕</Text>
-                </Pressable>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <Pressable
+                        style={s.configBtn}
+                        onPress={() => {
+                            store.touchInteraction();
+                            openPinModal('config');
+                        }}
+                    >
+                        <Text style={s.configBtnText}>⚙️</Text>
+                    </Pressable>
+                    <Pressable
+                        style={s.closeBtn}
+                        onPress={() => {
+                            store.touchInteraction();
+                            store.resetKiosk();
+                            router.back();
+                        }}
+                    >
+                        <Text style={s.closeBtnText}>✕</Text>
+                    </Pressable>
+                </View>
             </View>
 
             {/* ─── Hero ───────────────────── */}
@@ -664,18 +697,18 @@ export default function KioskScreen() {
                             <Text style={s.paymentTitle}>Seleccioná cómo pagar</Text>
 
                             {paymentMethods.map((method) => {
-                                const isActive = store.selectedPaymentMethodId === method.id_metodo_pago;
+                                const isActive = store.selectedPaymentMethodId === method.id;
                                 return (
                                     <Pressable
-                                        key={method.id_metodo_pago}
+                                        key={method.id}
                                         style={[s.paymentOption, isActive && s.paymentOptionActive]}
                                         onPress={() => {
                                             store.touchInteraction();
-                                            store.setSelectedPaymentMethodId(method.id_metodo_pago);
+                                            store.setSelectedPaymentMethodId(method.id);
                                         }}
                                     >
                                         <Text style={[s.paymentOptionText, isActive && s.paymentOptionTextActive]}>
-                                            {method.nombre_metodo}
+                                            {method.name}
                                         </Text>
                                         {isActive && <Text style={s.checkIcon}>✓</Text>}
                                     </Pressable>
@@ -708,18 +741,12 @@ export default function KioskScreen() {
                 </View>
             </Modal>
 
-            {/* ─── Admin PIN Modal ────────── */}
+            {/* ─── Admin PIN Modal (Only for Config now) ────────── */}
             <Modal visible={pinModalVisible} transparent animationType="fade">
                 <View style={s.pinOverlay}>
                     <View style={s.pinCard}>
-                        <Text style={s.pinTitle}>
-                            {pinAction === 'config' ? '⚙️ Configuración' : '🔒 PIN Admin'}
-                        </Text>
-                        <Text style={s.pinSubtitle}>
-                            {pinAction === 'config'
-                                ? 'Ingresá el PIN de configuración'
-                                : 'Ingresá el PIN para salir del kiosco'}
-                        </Text>
+                        <Text style={s.pinTitle}>⚙️ Configuración</Text>
+                        <Text style={s.pinSubtitle}>Ingresá el PIN de configuración</Text>
                         <TextInput
                             style={s.pinInput}
                             placeholder="PIN"
@@ -739,23 +766,9 @@ export default function KioskScreen() {
                                 <Text style={s.pinCancelText}>Cancelar</Text>
                             </Pressable>
                             <Pressable style={s.pinConfirmBtn} onPress={handlePinSubmit}>
-                                <Text style={s.pinConfirmText}>
-                                    {pinAction === 'config' ? 'Entrar' : 'Salir'}
-                                </Text>
+                                <Text style={s.pinConfirmText}>Entrar</Text>
                             </Pressable>
                         </View>
-                        {pinAction === 'exit' && (
-                            <Pressable
-                                style={s.configLink}
-                                onPress={() => {
-                                    setPinModalVisible(false);
-                                    setPinInput('');
-                                    openPinModal('config');
-                                }}
-                            >
-                                <Text style={s.configLinkText}>⚙️ Configurar Categorías</Text>
-                            </Pressable>
-                        )}
                     </View>
                 </View>
             </Modal>
@@ -814,6 +827,8 @@ const s = StyleSheet.create({
     logoEmoji: { fontSize: 32 },
     closeBtn: { backgroundColor: '#222', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
     closeBtnText: { color: '#666', fontSize: 18 },
+    configBtn: { backgroundColor: '#222', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    configBtnText: { color: '#666', fontSize: 18 },
 
     // Hero
     hero: { paddingHorizontal: 24, marginBottom: 20 },

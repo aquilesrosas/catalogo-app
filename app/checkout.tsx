@@ -15,6 +15,8 @@ import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
 import { formatPrice } from '@/utils/format';
 import { createOrder } from '@/services/api';
+import * as Location from 'expo-location';
+import LocationPickerMap from '@/components/LocationPickerMap';
 
 type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO';
 
@@ -29,7 +31,39 @@ export default function CheckoutScreen() {
     const [notes, setNotes] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('EFECTIVO');
     const [cashAmount, setCashAmount] = useState('');
+    const [tipoEntrega, setTipoEntrega] = useState<'LOCAL' | 'DELIVERY'>('LOCAL');
+    const [direccion, setDireccion] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [locationLoading, setLocationLoading] = useState(false);
+
+    // Get current location for the map
+    useEffect(() => {
+        (async () => {
+            if (tipoEntrega === 'DELIVERY' && !mapLocation) {
+                setLocationLoading(true);
+                try {
+                    let { status } = await Location.requestForegroundPermissionsAsync();
+                    if (status !== 'granted') {
+                        // Fallback to default (Salta)
+                        setMapLocation({ lat: -24.7821, lng: -65.4232 });
+                        setLocationLoading(false);
+                        return;
+                    }
+
+                    let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                    setMapLocation({
+                        lat: location.coords.latitude,
+                        lng: location.coords.longitude,
+                    });
+                } catch (error) {
+                    setMapLocation({ lat: -24.7821, lng: -65.4232 });
+                } finally {
+                    setLocationLoading(false);
+                }
+            }
+        })();
+    }, [tipoEntrega]);
 
     // Auto-fill from auth store
     useEffect(() => {
@@ -56,6 +90,16 @@ export default function CheckoutScreen() {
             Alert.alert('Error', 'Tu carrito está vacío');
             return;
         }
+        if (tipoEntrega === 'DELIVERY') {
+            if (!mapLocation) {
+                Alert.alert('Error', 'Seleccioná tu ubicación en el mapa');
+                return;
+            }
+            if (!direccion.trim()) {
+                Alert.alert('Error', 'Ingresá el detalle de tu domicilio (Piso, depto, etc)');
+                return;
+            }
+        }
 
         Keyboard.dismiss();
         setSubmitting(true);
@@ -67,6 +111,11 @@ export default function CheckoutScreen() {
             }));
 
             let payload: any = {
+                source: 'CATALOG',
+                tipo_entrega: tipoEntrega,
+                direccion_envio: tipoEntrega === 'DELIVERY' ? direccion.trim() : undefined,
+                latitud: tipoEntrega === 'DELIVERY' ? mapLocation?.lat : undefined,
+                longitud: tipoEntrega === 'DELIVERY' ? mapLocation?.lng : undefined,
                 client_name: trimmedName,
                 client_phone: trimmedPhone,
                 items: orderItems,
@@ -189,6 +238,67 @@ export default function CheckoutScreen() {
                                 </Text>
                             </Pressable>
                         </>
+                    )}
+                </View>
+
+                {/* Tipo de Entrega */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>🛵 Tipo de entrega</Text>
+                    <View style={styles.paymentRow}>
+                        <Pressable
+                            style={[
+                                styles.paymentOption,
+                                tipoEntrega === 'LOCAL' && styles.paymentActive,
+                            ]}
+                            onPress={() => setTipoEntrega('LOCAL')}
+                        >
+                            <Text style={styles.paymentIcon}>🏪</Text>
+                            <Text style={[styles.paymentText, tipoEntrega === 'LOCAL' && styles.paymentTextActive]}>
+                                Retiro
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            style={[
+                                styles.paymentOption,
+                                tipoEntrega === 'DELIVERY' && styles.paymentActive,
+                            ]}
+                            onPress={() => setTipoEntrega('DELIVERY')}
+                        >
+                            <Text style={styles.paymentIcon}>🛵</Text>
+                            <Text style={[styles.paymentText, tipoEntrega === 'DELIVERY' && styles.paymentTextActive]}>
+                                Envío
+                            </Text>
+                        </Pressable>
+                    </View>
+
+                    {tipoEntrega === 'DELIVERY' && (
+                        <View style={styles.mixtoArea}>
+                            <Text style={styles.inputLabel}>Ubicación de entrega *</Text>
+                            <Text style={styles.mapHelpText}>Moví el mapa y centrá el puntero en tu casa real.</Text>
+
+                            <View style={styles.mapContainer}>
+                                {locationLoading && !mapLocation ? (
+                                    <View style={styles.mapLoading}>
+                                        <ActivityIndicator color="#1B5E20" size="large" />
+                                        <Text style={{ marginTop: 8 }}>Buscando tu ubicación...</Text>
+                                    </View>
+                                ) : (
+                                    <LocationPickerMap
+                                        initialLocation={mapLocation || undefined}
+                                        onLocationSelect={(lat, lng) => setMapLocation({ lat, lng })}
+                                    />
+                                )}
+                            </View>
+
+                            <Text style={styles.inputLabel}>Detalles de entrega (Piso, Depto) *</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={direccion}
+                                onChangeText={setDireccion}
+                                placeholder="Ej: Portón verde, depto 4B"
+                                placeholderTextColor="#aaa"
+                            />
+                        </View>
                     )}
                 </View>
 
@@ -464,4 +574,24 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: '700',
     },
+    mapContainer: {
+        height: 250,
+        marginVertical: 12,
+        borderRadius: 12,
+        overflow: 'hidden',
+        borderWidth: 1.5,
+        borderColor: '#D0D0D0',
+    },
+    mapHelpText: {
+        fontSize: 12,
+        color: '#666',
+        marginTop: -4,
+        marginBottom: 4,
+    },
+    mapLoading: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5'
+    }
 });

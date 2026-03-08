@@ -39,14 +39,14 @@ interface KioskState {
     checkoutVisible: boolean;
     checkoutStep: CheckoutStep;
     selectedClient: KioskClient | null;
-    selectedPaymentMethodId: number | null;
+    selectedPaymentMethodId: string | null;
     orderProcessing: boolean;
 
     startCheckout: () => void;
     closeCheckout: () => void;
     setCheckoutStep: (step: CheckoutStep) => void;
     setSelectedClient: (client: KioskClient | null) => void;
-    setSelectedPaymentMethodId: (id: number) => void;
+    setSelectedPaymentMethodId: (id: string) => void;
     setOrderProcessing: (val: boolean) => void;
 
     // Auto-reset timer
@@ -55,6 +55,10 @@ interface KioskState {
 
     // Full reset
     resetKiosk: () => void;
+
+    // Table/Kiosk Identifier (from URL via QR)
+    kioskId: string | null;
+    setKioskId: (id: string | null) => void;
 }
 
 export const useKioskStore = create<KioskState>((set, get) => ({
@@ -146,5 +150,10 @@ export const useKioskStore = create<KioskState>((set, get) => ({
             selectedPaymentMethodId: null,
             orderProcessing: false,
             lastInteraction: Date.now(),
+            kioskId: null,
         }),
+
+    // ─── Table/Kiosk Identifier ───────────────
+    kioskId: null,
+    setKioskId: (id) => set({ kioskId: id }),
 }));

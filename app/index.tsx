@@ -8,7 +8,7 @@ import {
     Text,
     Pressable,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCatalogStore } from '@/stores/catalogStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useConfigStore } from '@/stores/configStore';
@@ -37,14 +37,20 @@ export default function HomeScreen() {
     } = useCatalogStore();
     const { isLoggedIn } = useAuthStore();
     const router = useRouter();
+    const params = useLocalSearchParams();
     const kioskTitle = useConfigStore((s) => s.kioskTitle);
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const showBanner = !isLoggedIn() && !bannerDismissed;
 
     useEffect(() => {
-        fetchCategories();
-        fetchProducts(true);
-    }, []);
+        // Table Ordering QR redirect
+        if (params.kiosk) {
+            router.replace(`/kiosk?kiosk=${params.kiosk}`);
+        } else {
+            fetchCategories();
+            fetchProducts(true);
+        }
+    }, [params.kiosk]);
 
     const renderFooter = () => {
         if (!loadingMore) return null;

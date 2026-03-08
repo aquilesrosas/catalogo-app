@@ -96,8 +96,16 @@ export interface OrderItem {
 }
 
 export interface CreateOrderPayload {
-    client_name: string;
-    client_phone: string;
+    client_name?: string;
+    client_phone?: string;
+    cliente_id?: number | null;
+    source?: 'kiosk' | 'catalog' | 'qr' | 'table';
+    tipo_entrega?: 'LOCAL' | 'DELIVERY' | 'MESA';
+    kiosk_id?: string;
+    direccion_envio?: string;
+    costo_envio?: number;
+    latitud?: number;
+    longitud?: number;
     items: OrderItem[];
     payment_method: 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO';
     payment_amount_cash?: number;
@@ -214,6 +222,22 @@ export async function getUserOrders(phone: string): Promise<OrderResponse['order
     return data;
 }
 
+export async function getPaymentMethods(): Promise<Array<{ id: string, name: string }>> {
+    const { data } = await api.get('payment-methods/');
+    return data;
+}
+
+export async function searchClientsPublic(q: string): Promise<Array<{ id: number, name: string, phone: string }>> {
+    if (!q || q.length < 3) return [];
+    const { data } = await api.get('clients/search/', { params: { q } });
+    return data;
+}
+
+export async function registerClientPublic(name: string, phone: string): Promise<{ id: number, name: string, phone: string }> {
+    const { data } = await api.post('clients/register/', { name, phone });
+    return data;
+}
+
 // ─── Auth API Functions ──────────────────────
 export async function requestOTP(phone: string, email?: string, name?: string): Promise<OTPRequestResponse> {
     const { data } = await api.post('auth/request-otp/', { phone, email, name });
@@ -246,78 +270,6 @@ export async function setPassword(password: string): Promise<{ message: string }
 
 export async function registerAPI(name: string, phone: string, email: string, password: string): Promise<OTPVerifyResponse> {
     const { data } = await api.post('auth/register/', { name, phone, email, password });
-    return data;
-}
-
-// ─── Kiosk API Functions ─────────────────────
-
-export interface PaymentMethodPublic {
-    id_metodo_pago: number;
-    nombre_metodo: string;
-    tipo: string;
-}
-
-export interface KioskClient {
-    id: number;
-    name: string;
-    phone: string;
-    points?: number;
-    total_orders?: number;
-    already_exists?: boolean;
-}
-
-export interface KioskOrderItem {
-    product_id: number;
-    quantity: number;
-    notes?: string;
-}
-
-export interface KioskOrderPayload {
-    client_id: number;
-    payment_method_id: number;
-    items: KioskOrderItem[];
-    notes?: string;
-}
-
-export interface KioskOrderResponse {
-    message: string;
-    order: {
-        id: number;
-        status: string;
-        total: string;
-        client_name: string;
-        items_count: number;
-        created_at: string;
-    };
-}
-
-export async function getPaymentMethods(): Promise<PaymentMethodPublic[]> {
-    try {
-        const { data } = await api.get('payment-methods/');
-        return data;
-    } catch (e) {
-        console.warn('Error fetching payment methods:', e);
-        return [];
-    }
-}
-
-export async function searchClients(query: string): Promise<KioskClient[]> {
-    try {
-        const { data } = await api.get('clients/search/', { params: { q: query } });
-        return data;
-    } catch (e) {
-        console.warn('Error searching clients:', e);
-        return [];
-    }
-}
-
-export async function registerClient(name: string, phone: string, email?: string): Promise<KioskClient> {
-    const { data } = await api.post('clients/register/', { name, phone, email });
-    return data;
-}
-
-export async function createKioskOrder(payload: KioskOrderPayload): Promise<KioskOrderResponse> {
-    const { data } = await api.post('kiosk-orders/', payload);
     return data;
 }
 
