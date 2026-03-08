@@ -1,5 +1,5 @@
 # Dockerfile para compilar y servir la versión Web de la app Expo
-FROM public.ecr.aws/docker/library/node:18-alpine AS builder
+FROM public.ecr.aws/docker/library/node:20-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
