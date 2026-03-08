@@ -1,5 +1,5 @@
 # Dockerfile para compilar y servir la versión Web de la app Expo
-FROM node:18-alpine AS builder
+FROM public.ecr.aws/docker/library/node:18-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
@@ -10,7 +10,7 @@ COPY . .
 RUN npx expo export -p web
 
 # Servir con Nginx (Alpine) ligero
-FROM nginx:alpine
+FROM public.ecr.aws/docker/library/nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Redirigir siempre a index.html (regla SPA para Expo Router)
