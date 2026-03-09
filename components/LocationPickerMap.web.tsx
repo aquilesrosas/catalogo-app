@@ -1,6 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Platform, Text } from 'react-native';
-import { WebView } from 'react-native-webview';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
 
 interface LocationPickerProps {
     initialLocation?: { lat: number; lng: number };
@@ -8,13 +7,11 @@ interface LocationPickerProps {
     showCrosshair?: boolean;
 }
 
-const LocationPickerMap: React.FC<LocationPickerProps> = ({
+const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
     initialLocation,
     onLocationSelect,
     showCrosshair = true
 }) => {
-    const webviewRef = useRef<WebView>(null);
-
     const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -57,8 +54,8 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
 
           map.on('moveend', function() {
             const center = map.getCenter();
-            // Send back to RN
-            window.ReactNativeWebView.postMessage(JSON.stringify({ lat: center.lat, lng: center.lng }));
+            // Send back to RN web (iframe listener)
+            window.parent.postMessage(JSON.stringify({ lat: center.lat, lng: center.lng }), '*');
           });
         }
 
@@ -70,18 +67,22 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
 
     return (
         <View style={styles.container}>
-            <WebView
-                ref={webviewRef}
-                originWhitelist={['*']}
-                source={{ html: htmlContent }}
-                style={styles.map}
-                onMessage={(event) => {
-                    try {
-                        const data = JSON.parse(event.nativeEvent.data);
-                        if (data.lat && data.lng) {
-                            onLocationSelect(data.lat, data.lng);
+            <iframe
+                srcDoc={htmlContent}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                onLoad={(e) => {
+                    // Inject message listener for web iframe locally
+                    const iframe = e.target as HTMLIFrameElement;
+                    window.addEventListener('message', (event) => {
+                        if (event.source === iframe.contentWindow) {
+                            try {
+                                const data = JSON.parse(event.data);
+                                if (data.lat && data.lng) {
+                                    onLocationSelect(data.lat, data.lng);
+                                }
+                            } catch (e) { }
                         }
-                    } catch (e) { }
+                    });
                 }}
             />
         </View>
@@ -93,4 +94,4 @@ const styles = StyleSheet.create({
     map: { flex: 1 },
 });
 
-export default LocationPickerMap;
+export default LocationPickerMapWeb;
