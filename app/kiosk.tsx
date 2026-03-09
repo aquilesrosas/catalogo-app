@@ -89,11 +89,7 @@ export default function KioskScreen() {
 
     // Checkout local state
     const [identityQuery, setIdentityQuery] = useState('');
-    const [searchingIdentity, setSearchingIdentity] = useState(false);
     const [identityError, setIdentityError] = useState('');
-    const [regName, setRegName] = useState('');
-    const [regPhone, setRegPhone] = useState('');
-    const [creatingClient, setCreatingClient] = useState(false);
 
     // Admin PIN modal
     const [pinModalVisible, setPinModalVisible] = useState(false);
@@ -226,49 +222,19 @@ export default function KioskScreen() {
         setBuilderNotes('');
     };
 
-    const handleIdentitySearch = async () => {
-        if (identityQuery.length < 2) {
-            setIdentityError('Ingresa al menos 2 caracteres.');
+    // Kiosk Identity is just a local name for the order
+    const handleIdentifyGuest = () => {
+        if (identityQuery.trim().length < 2) {
+            setIdentityError('Ingresá al menos 2 caracteres.');
             return;
         }
-        setSearchingIdentity(true);
         setIdentityError('');
-        try {
-            const results = await searchClientsPublic(identityQuery);
-            if (results && results.length > 0) {
-                store.setSelectedClient(results[0] as any);
-                store.setCheckoutStep('payment');
-            } else {
-                setRegName('');
-                setRegPhone(identityQuery);
-                store.setCheckoutStep('register');
-            }
-        } catch (e) {
-            setIdentityError('Error al buscar. Intentá de nuevo.');
-        } finally {
-            setSearchingIdentity(false);
-        }
-    };
-
-    const handleRegister = async () => {
-        if (!regName.trim()) {
-            Alert.alert('Error', 'Ingresá tu nombre.');
-            return;
-        }
-        if (!regPhone.trim()) {
-            Alert.alert('Error', 'Ingresá tu teléfono.');
-            return;
-        }
-        setCreatingClient(true);
-        try {
-            const client = await registerClientPublic(regName.trim(), regPhone.trim());
-            store.setSelectedClient(client as any);
-            store.setCheckoutStep('payment');
-        } catch (e) {
-            Alert.alert('Error', 'No se pudo registrar. Intentá con otro teléfono.');
-        } finally {
-            setCreatingClient(false);
-        }
+        store.setSelectedClient({
+            id: 0,
+            name: identityQuery.trim(),
+            phone: ''
+        } as any);
+        store.setCheckoutStep('payment');
     };
 
     const handleConfirmOrder = async () => {
@@ -287,8 +253,10 @@ export default function KioskScreen() {
                     notes: item.notes || undefined,
                 })),
             };
-            if (store.selectedClient) {
+            if (store.selectedClient && store.selectedClient.id) {
                 payload.cliente_id = store.selectedClient.id;
+            } else if (store.selectedClient && store.selectedClient.name) {
+                payload.client_name = store.selectedClient.name;
             }
 
             const result = await createOrder(payload);
@@ -595,10 +563,10 @@ export default function KioskScreen() {
                     {/* Step 1: Identify */}
                     {store.checkoutStep === 'identify' && (
                         <View style={s.checkoutCenter}>
-                            <Text style={s.identifyHint}>Ingresá tu nombre o teléfono</Text>
+                            <Text style={s.identifyHint}>Tu nombre para llamarte cuando el pedido esté listo:</Text>
                             <TextInput
                                 style={s.identifyInput}
-                                placeholder="Nombre o Teléfono"
+                                placeholder="Ej: Juan"
                                 placeholderTextColor="#555"
                                 value={identityQuery}
                                 onChangeText={(t) => { store.touchInteraction(); setIdentityQuery(t); }}
@@ -607,14 +575,9 @@ export default function KioskScreen() {
                             {identityError ? <Text style={s.errorText}>{identityError}</Text> : null}
                             <Pressable
                                 style={s.continueBtn}
-                                onPress={handleIdentitySearch}
-                                disabled={searchingIdentity}
+                                onPress={handleIdentifyGuest}
                             >
-                                {searchingIdentity ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={s.continueBtnText}>Buscar</Text>
-                                )}
+                                <Text style={s.continueBtnText}>Continuar</Text>
                             </Pressable>
                             <Pressable
                                 style={s.skipIdentifyBtn}
@@ -625,48 +588,6 @@ export default function KioskScreen() {
                                 }}
                             >
                                 <Text style={s.skipIdentifyText}>Pedir sin identificarse →</Text>
-                            </Pressable>
-                        </View>
-                    )}
-
-                    {/* Step 2: Register */}
-                    {store.checkoutStep === 'register' && (
-                        <View style={s.checkoutCenter}>
-                            <Text style={s.registerIcon}>👋</Text>
-                            <Text style={s.registerTitle}>¡Bienvenido!</Text>
-                            <Text style={s.registerSubtitle}>No te encontramos. Registrate rápido.</Text>
-
-                            <TextInput
-                                style={s.regInput}
-                                placeholder="Tu Nombre Completo"
-                                placeholderTextColor="#555"
-                                value={regName}
-                                onChangeText={(t) => { store.touchInteraction(); setRegName(t); }}
-                            />
-                            <TextInput
-                                style={s.regInput}
-                                placeholder="Teléfono"
-                                placeholderTextColor="#555"
-                                value={regPhone}
-                                onChangeText={(t) => { store.touchInteraction(); setRegPhone(t); }}
-                                keyboardType="phone-pad"
-                            />
-                            <Pressable
-                                style={s.continueBtn}
-                                onPress={handleRegister}
-                                disabled={creatingClient}
-                            >
-                                {creatingClient ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={s.continueBtnText}>Crear y Continuar</Text>
-                                )}
-                            </Pressable>
-                            <Pressable
-                                style={s.backLink}
-                                onPress={() => { store.touchInteraction(); store.setCheckoutStep('identify'); }}
-                            >
-                                <Text style={s.backLinkText}>← Volver a buscar</Text>
                             </Pressable>
                         </View>
                     )}
@@ -688,7 +609,7 @@ export default function KioskScreen() {
                                 <View style={s.clientCard}>
                                     <Text style={s.clientIcon}>👤</Text>
                                     <View>
-                                        <Text style={s.clientName}>Pedído anónimo</Text>
+                                        <Text style={s.clientName}>Pedido anónimo</Text>
                                         <Text style={s.clientPhone}>Sin identificación</Text>
                                     </View>
                                 </View>
@@ -696,19 +617,21 @@ export default function KioskScreen() {
 
                             <Text style={s.paymentTitle}>Seleccioná cómo pagar</Text>
 
-                            {paymentMethods.map((method) => {
-                                const isActive = store.selectedPaymentMethodId === method.id;
+                            {paymentMethods.map((method: any) => {
+                                const id = method.id_metodo_pago;
+                                const name = method.nombre_metodo;
+                                const isActive = store.selectedPaymentMethodId === id;
                                 return (
                                     <Pressable
-                                        key={method.id}
+                                        key={id}
                                         style={[s.paymentOption, isActive && s.paymentOptionActive]}
                                         onPress={() => {
                                             store.touchInteraction();
-                                            store.setSelectedPaymentMethodId(method.id);
+                                            store.setSelectedPaymentMethodId(id);
                                         }}
                                     >
                                         <Text style={[s.paymentOptionText, isActive && s.paymentOptionTextActive]}>
-                                            {method.name}
+                                            {name}
                                         </Text>
                                         {isActive && <Text style={s.checkIcon}>✓</Text>}
                                     </Pressable>
