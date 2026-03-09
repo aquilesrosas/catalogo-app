@@ -9,6 +9,7 @@ import {
     Alert,
     ActivityIndicator,
     Keyboard,
+    Platform,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useCartStore } from '@/stores/cartStore';
@@ -73,36 +74,48 @@ export default function CheckoutScreen() {
 
     const total = getTotal();
 
+    // Cross-platform alert that works on web
+    const showAlert = (title: string, message: string, onOk?: () => void) => {
+        if (Platform.OS === 'web') {
+            window.alert(`${title}\n\n${message}`);
+            if (onOk) onOk();
+        } else {
+            Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
+        }
+    };
+
     const handleSubmit = async () => {
+        console.log('[Checkout] handleSubmit called');
         // Validation
         const trimmedName = name.trim();
         const trimmedPhone = phone.trim();
 
         if (!trimmedName) {
-            Alert.alert('Error', 'Ingresá tu nombre');
+            showAlert('Error', 'Ingresá tu nombre');
             return;
         }
         if (!trimmedPhone || trimmedPhone.length < 8) {
-            Alert.alert('Error', 'Ingresá un teléfono válido');
+            showAlert('Error', 'Ingresá un teléfono válido');
             return;
         }
         if (items.length === 0) {
-            Alert.alert('Error', 'Tu carrito está vacío');
+            showAlert('Error', 'Tu carrito está vacío');
             return;
         }
         if (tipoEntrega === 'DELIVERY') {
             if (!mapLocation) {
-                Alert.alert('Error', 'Seleccioná tu ubicación en el mapa');
+                showAlert('Error', 'Seleccioná tu ubicación en el mapa');
                 return;
             }
             if (!direccion.trim()) {
-                Alert.alert('Error', 'Ingresá el detalle de tu domicilio (Piso, depto, etc)');
+                showAlert('Error', 'Ingresá el detalle de tu domicilio (Piso, depto, etc)');
                 return;
             }
         }
 
         Keyboard.dismiss();
         setSubmitting(true);
+        console.log('[Checkout] Validation passed, submitting...');
 
         try {
             const orderItems = items.map((i) => ({
@@ -126,7 +139,7 @@ export default function CheckoutScreen() {
             if (paymentMethod === 'MIXTO') {
                 const cash = parseFloat(cashAmount);
                 if (isNaN(cash) || cash < 0 || cash > total) {
-                    Alert.alert('Error', 'Ingresá un monto en efectivo válido');
+                    showAlert('Error', 'Ingresá un monto en efectivo válido');
                     setSubmitting(false);
                     return;
                 }
@@ -134,27 +147,28 @@ export default function CheckoutScreen() {
                 payload.payment_amount_transfer = total - cash;
             }
 
+            console.log('[Checkout] Sending payload:', JSON.stringify(payload));
             const result = await createOrder(payload);
+            console.log('[Checkout] Order created:', JSON.stringify(result));
 
             clearCart();
 
-            Alert.alert(
+            showAlert(
                 '✅ ¡Pedido enviado!',
                 `Pedido #${result.order.id}\n${result.message}\n\nTotal: ${formatPrice(result.order.total)}`,
-                [
-                    {
-                        text: 'Volver al catálogo',
-                        onPress: () => router.replace('/'),
-                    },
-                ]
+                () => router.replace('/')
             );
         } catch (err: any) {
+            console.error('[Checkout] Error sending order:', err);
+            console.error('[Checkout] Response data:', JSON.stringify(err?.response?.data));
             const msg =
                 err?.response?.data?.items?.join('\n') ||
                 err?.response?.data?.detail ||
+                err?.response?.data?.error ||
+                err?.response?.data?.non_field_errors?.join('\n') ||
                 err?.message ||
                 'Error al enviar el pedido';
-            Alert.alert('Error', msg);
+            showAlert('Error', msg);
         } finally {
             setSubmitting(false);
         }
