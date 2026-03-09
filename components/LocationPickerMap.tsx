@@ -25,9 +25,9 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
     setSearching(true);
     try {
       const viewbox = initialLocation
-        ? `&viewbox=${initialLocation.lng - 0.5},${initialLocation.lat - 0.5},${initialLocation.lng + 0.5},${initialLocation.lat + 0.5}&bounded=1`
+        ? `&viewbox=${initialLocation.lng - 0.5},${initialLocation.lat + 0.5},${initialLocation.lng + 0.5},${initialLocation.lat - 0.5}`
         : '';
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchText.trim())}&countrycodes=ar${viewbox}&limit=1`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchText.trim() + ', Salta, Argentina')}&limit=1${viewbox}`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'es' } });
       const results = await res.json();
       if (results && results.length > 0) {
