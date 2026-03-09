@@ -69,7 +69,7 @@ export const useCartStore = create<CartState>()(
 
             getTotal: () =>
                 get().items.reduce((sum, i) => {
-                    const price = parseFloat(i.product.price) || 0;
+                    const price = parseFloat(i.product.price || (i.product as any).precio_venta) || 0;
                     return sum + price * i.quantity;
                 }, 0),
 

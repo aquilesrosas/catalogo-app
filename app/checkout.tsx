@@ -172,7 +172,7 @@ export default function CheckoutScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>📦 Resumen</Text>
                     {items.map((item) => {
-                        const price = parseFloat(item.product.price) || 0;
+                        const price = parseFloat(item.product.price || (item.product as any).precio_venta) || 0;
                         const isByWeight = item.product.sells_by_weight;
                         const unit = item.product.unit || 'Unid';
                         const qtyLabel = isByWeight
