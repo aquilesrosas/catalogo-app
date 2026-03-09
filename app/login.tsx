@@ -171,202 +171,204 @@ export default function LoginScreen() {
                 style={styles.container}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-                    <View style={styles.brandArea}>
-                        <View style={styles.iconCircle}>
-                            <Text style={styles.iconText}>{step === 'logged_in' ? '👤' : '🔐'}</Text>
-                        </View>
-                        <Text style={styles.brandTitle}>{step === 'logged_in' ? 'Mi Cuenta' : 'Iniciar Sesión'}</Text>
-                        <Text style={styles.brandSubtitle}>
-                            {step === 'phone' && 'Ingresá tus datos para continuar'}
-                            {step === 'password' && `Ingresá tu contraseña para ${phone}`}
-                            {step === 'code' && `Te enviamos un código a ${email}`}
-                            {step === 'set_password' && 'Creá una contraseña para tu cuenta'}
-                            {step === 'logged_in' && 'Sesión activa'}
-                        </Text>
-                    </View>
-
-                    {step === 'phone' && (
-                        <View style={styles.formArea}>
-                            <Text style={styles.inputLabel}>Tu teléfono *</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={phone}
-                                onChangeText={setPhone}
-                                placeholder="Ej: 1123456789"
-                                placeholderTextColor="#aaa"
-                                keyboardType="phone-pad"
-                            />
-                            <Text style={styles.inputLabel}>Tu contraseña *</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={password}
-                                onChangeText={setPasswordState}
-                                placeholder="******"
-                                placeholderTextColor="#aaa"
-                                secureTextEntry
-                            />
-                            <Pressable
-                                style={[styles.primaryBtn, loading && styles.btnDisabled]}
-                                onPress={handleLoginPassword}
-                                disabled={loading}
-                            >
-                                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Entrar</Text>}
-                            </Pressable>
-                            <View style={styles.separatorArea}>
-                                <View style={styles.separator} />
-                                <Text style={styles.separatorText}>O TAMBIÉN</Text>
-                                <View style={styles.separator} />
+                <ScrollView contentContainerStyle={styles.scrollGrow} showsVerticalScrollIndicator={false}>
+                    <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+                        <View style={styles.brandArea}>
+                            <View style={styles.iconCircle}>
+                                <Text style={styles.iconText}>{step === 'logged_in' ? '👤' : '🔐'}</Text>
                             </View>
-                            <Pressable
-                                style={styles.secondaryBtn}
-                                onPress={() => {
-                                    setName('');
-                                    setEmail('');
-                                    setPhone('');
-                                    setPasswordState('');
-                                    setShowRegister(true);
-                                }}
-                            >
-                                <Text style={styles.secondaryBtnText}>✨ Crear cuenta nueva</Text>
-                            </Pressable>
-                            <Pressable style={styles.skipBtn} onPress={() => router.back()}>
-                                <Text style={styles.skipBtnText}>Continuar sin cuenta</Text>
-                            </Pressable>
-                            <Pressable
-                                style={styles.changeConfigBtn}
-                                onPress={() => {
-                                    Alert.alert(
-                                        'Cambiar de Local',
-                                        '¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.',
-                                        [
-                                            { text: 'Cancelar', style: 'cancel' },
-                                            {
-                                                text: 'Sí, cambiar',
-                                                style: 'destructive',
-                                                onPress: () => {
-                                                    clearConfig();
-                                                    router.replace('/config_setup');
+                            <Text style={styles.brandTitle}>{step === 'logged_in' ? 'Mi Cuenta' : 'Iniciar Sesión'}</Text>
+                            <Text style={styles.brandSubtitle}>
+                                {step === 'phone' && 'Ingresá tus datos para continuar'}
+                                {step === 'password' && `Ingresá tu contraseña para ${phone}`}
+                                {step === 'code' && `Te enviamos un código a ${email}`}
+                                {step === 'set_password' && 'Creá una contraseña para tu cuenta'}
+                                {step === 'logged_in' && 'Sesión activa'}
+                            </Text>
+                        </View>
+
+                        {step === 'phone' && (
+                            <View style={styles.formArea}>
+                                <Text style={styles.inputLabel}>Tu teléfono *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={phone}
+                                    onChangeText={setPhone}
+                                    placeholder="Ej: 1123456789"
+                                    placeholderTextColor="#aaa"
+                                    keyboardType="phone-pad"
+                                />
+                                <Text style={styles.inputLabel}>Tu contraseña *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={password}
+                                    onChangeText={setPasswordState}
+                                    placeholder="******"
+                                    placeholderTextColor="#aaa"
+                                    secureTextEntry
+                                />
+                                <Pressable
+                                    style={[styles.primaryBtn, loading && styles.btnDisabled]}
+                                    onPress={handleLoginPassword}
+                                    disabled={loading}
+                                >
+                                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Entrar</Text>}
+                                </Pressable>
+                                <View style={styles.separatorArea}>
+                                    <View style={styles.separator} />
+                                    <Text style={styles.separatorText}>O TAMBIÉN</Text>
+                                    <View style={styles.separator} />
+                                </View>
+                                <Pressable
+                                    style={styles.secondaryBtn}
+                                    onPress={() => {
+                                        setName('');
+                                        setEmail('');
+                                        setPhone('');
+                                        setPasswordState('');
+                                        setShowRegister(true);
+                                    }}
+                                >
+                                    <Text style={styles.secondaryBtnText}>✨ Crear cuenta nueva</Text>
+                                </Pressable>
+                                <Pressable style={styles.skipBtn} onPress={() => router.back()}>
+                                    <Text style={styles.skipBtnText}>Continuar sin cuenta</Text>
+                                </Pressable>
+                                <Pressable
+                                    style={styles.changeConfigBtn}
+                                    onPress={() => {
+                                        Alert.alert(
+                                            'Cambiar de Local',
+                                            '¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.',
+                                            [
+                                                { text: 'Cancelar', style: 'cancel' },
+                                                {
+                                                    text: 'Sí, cambiar',
+                                                    style: 'destructive',
+                                                    onPress: () => {
+                                                        clearConfig();
+                                                        router.replace('/config_setup');
+                                                    }
                                                 }
-                                            }
-                                        ]
-                                    );
-                                }}
-                            >
-                                <Text style={styles.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
-                            </Pressable>
-                        </View>
-                    )}
-
-                    {step === 'code' && (
-                        <View style={styles.formArea}>
-                            {devCode && (
-                                <View style={styles.devBanner}>
-                                    <Text style={styles.devBannerText}>🧪 Dev mode — Tu código: {devCode}</Text>
-                                </View>
-                            )}
-                            <Text style={styles.inputLabel}>Código de verificación *</Text>
-                            <TextInput
-                                style={[styles.input, styles.codeInput]}
-                                value={code}
-                                onChangeText={setCode}
-                                placeholder="0000"
-                                placeholderTextColor="#ccc"
-                                keyboardType="number-pad"
-                                maxLength={4}
-                                autoFocus
-                                textAlign="center"
-                            />
-                            <Pressable
-                                style={[styles.primaryBtn, loading && styles.btnDisabled]}
-                                onPress={handleVerifyOTP}
-                                disabled={loading}
-                            >
-                                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>✅ Verificar</Text>}
-                            </Pressable>
-                            <Pressable
-                                style={styles.skipBtn}
-                                onPress={() => {
-                                    setCode('');
-                                    setDevCode(null);
-                                    animateTransition('phone');
-                                }}
-                            >
-                                <Text style={styles.skipBtnText}>← Cambiar</Text>
-                            </Pressable>
-                        </View>
-                    )}
-
-                    {step === 'set_password' && (
-                        <View style={styles.formArea}>
-                            <Text style={styles.inputLabel}>Nueva contraseña</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={newPassword}
-                                onChangeText={setNewPassword}
-                                placeholder="Mínimo 6 caracteres"
-                                secureTextEntry
-                                autoFocus
-                            />
-                            <Pressable
-                                style={[styles.primaryBtn, loading && styles.btnDisabled]}
-                                onPress={handleSetPassword}
-                                disabled={loading}
-                            >
-                                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Guardar contraseña</Text>}
-                            </Pressable>
-                            <Pressable style={styles.skipBtn} onPress={() => animateTransition('logged_in')}>
-                                <Text style={styles.skipBtnText}>Omitir por ahora</Text>
-                            </Pressable>
-                        </View>
-                    )}
-
-                    {step === 'logged_in' && (
-                        <ScrollView style={styles.loggedInScroll} contentContainerStyle={styles.loggedInContent} showsVerticalScrollIndicator={false}>
-                            <View style={styles.profileCard}>
-                                <View style={styles.profileInitials}>
-                                    <Text style={styles.profileInitialsText}>{(clientName || '?')[0].toUpperCase()}</Text>
-                                </View>
-                                <Text style={styles.profileName}>{clientName}</Text>
-                                <Text style={styles.profilePhone}>📱 {clientPhone}</Text>
-                                <View style={styles.pointsBadge}>
-                                    <Text style={styles.pointsText}>🏆 {clientPoints} puntos</Text>
-                                </View>
+                                            ]
+                                        );
+                                    }}
+                                >
+                                    <Text style={styles.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
+                                </Pressable>
                             </View>
-                            <Pressable style={styles.primaryBtn} onPress={() => router.replace('/')}>
-                                <Text style={styles.primaryBtnText}>🛒 Ir al catálogo</Text>
-                            </Pressable>
-                            <Pressable style={styles.ordersBtn} onPress={() => router.push('/orders')}>
-                                <Text style={styles.ordersBtnText}>📄 Mis Pedidos</Text>
-                            </Pressable>
-                            <Pressable
-                                style={styles.changeConfigBtn}
-                                onPress={() => {
-                                    Alert.alert(
-                                        'Cambiar de Local',
-                                        '¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.',
-                                        [
-                                            { text: 'Cancelar', style: 'cancel' },
-                                            {
-                                                text: 'Sí, cambiar',
-                                                style: 'destructive',
-                                                onPress: () => {
-                                                    clearConfig();
-                                                    router.replace('/config_setup');
+                        )}
+
+                        {step === 'code' && (
+                            <View style={styles.formArea}>
+                                {devCode && (
+                                    <View style={styles.devBanner}>
+                                        <Text style={styles.devBannerText}>🧪 Dev mode — Tu código: {devCode}</Text>
+                                    </View>
+                                )}
+                                <Text style={styles.inputLabel}>Código de verificación *</Text>
+                                <TextInput
+                                    style={[styles.input, styles.codeInput]}
+                                    value={code}
+                                    onChangeText={setCode}
+                                    placeholder="0000"
+                                    placeholderTextColor="#ccc"
+                                    keyboardType="number-pad"
+                                    maxLength={4}
+                                    autoFocus
+                                    textAlign="center"
+                                />
+                                <Pressable
+                                    style={[styles.primaryBtn, loading && styles.btnDisabled]}
+                                    onPress={handleVerifyOTP}
+                                    disabled={loading}
+                                >
+                                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>✅ Verificar</Text>}
+                                </Pressable>
+                                <Pressable
+                                    style={styles.skipBtn}
+                                    onPress={() => {
+                                        setCode('');
+                                        setDevCode(null);
+                                        animateTransition('phone');
+                                    }}
+                                >
+                                    <Text style={styles.skipBtnText}>← Cambiar</Text>
+                                </Pressable>
+                            </View>
+                        )}
+
+                        {step === 'set_password' && (
+                            <View style={styles.formArea}>
+                                <Text style={styles.inputLabel}>Nueva contraseña</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={newPassword}
+                                    onChangeText={setNewPassword}
+                                    placeholder="Mínimo 6 caracteres"
+                                    secureTextEntry
+                                    autoFocus
+                                />
+                                <Pressable
+                                    style={[styles.primaryBtn, loading && styles.btnDisabled]}
+                                    onPress={handleSetPassword}
+                                    disabled={loading}
+                                >
+                                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Guardar contraseña</Text>}
+                                </Pressable>
+                                <Pressable style={styles.skipBtn} onPress={() => animateTransition('logged_in')}>
+                                    <Text style={styles.skipBtnText}>Omitir por ahora</Text>
+                                </Pressable>
+                            </View>
+                        )}
+
+                        {step === 'logged_in' && (
+                            <ScrollView style={styles.loggedInScroll} contentContainerStyle={styles.loggedInContent} showsVerticalScrollIndicator={false}>
+                                <View style={styles.profileCard}>
+                                    <View style={styles.profileInitials}>
+                                        <Text style={styles.profileInitialsText}>{(clientName || '?')[0].toUpperCase()}</Text>
+                                    </View>
+                                    <Text style={styles.profileName}>{clientName}</Text>
+                                    <Text style={styles.profilePhone}>📱 {clientPhone}</Text>
+                                    <View style={styles.pointsBadge}>
+                                        <Text style={styles.pointsText}>🏆 {clientPoints} puntos</Text>
+                                    </View>
+                                </View>
+                                <Pressable style={styles.primaryBtn} onPress={() => router.replace('/')}>
+                                    <Text style={styles.primaryBtnText}>🛒 Ir al catálogo</Text>
+                                </Pressable>
+                                <Pressable style={styles.ordersBtn} onPress={() => router.push('/orders')}>
+                                    <Text style={styles.ordersBtnText}>📄 Mis Pedidos</Text>
+                                </Pressable>
+                                <Pressable
+                                    style={styles.changeConfigBtn}
+                                    onPress={() => {
+                                        Alert.alert(
+                                            'Cambiar de Local',
+                                            '¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.',
+                                            [
+                                                { text: 'Cancelar', style: 'cancel' },
+                                                {
+                                                    text: 'Sí, cambiar',
+                                                    style: 'destructive',
+                                                    onPress: () => {
+                                                        clearConfig();
+                                                        router.replace('/config_setup');
+                                                    }
                                                 }
-                                            }
-                                        ]
-                                    );
-                                }}
-                            >
-                                <Text style={styles.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
-                            </Pressable>
-                            <Pressable style={styles.logoutBtn} onPress={handleLogout}>
-                                <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
-                            </Pressable>
-                        </ScrollView>
-                    )}
-                </Animated.View>
+                                            ]
+                                        );
+                                    }}
+                                >
+                                    <Text style={styles.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
+                                </Pressable>
+                                <Pressable style={styles.logoutBtn} onPress={handleLogout}>
+                                    <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
+                                </Pressable>
+                            </ScrollView>
+                        )}
+                    </Animated.View>
+                </ScrollView>
             </KeyboardAvoidingView>
 
             <Modal
@@ -443,6 +445,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F5F9F5',
+    },
+    scrollGrow: {
+        flexGrow: 1,
+        justifyContent: 'center',
     },
     content: {
         flex: 1,
