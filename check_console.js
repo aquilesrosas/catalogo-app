@@ -14,10 +14,13 @@ const puppeteer = require('puppeteer');
     );
 
     console.log('Navigating to http://localhost:8081...');
-    await page.goto('http://localhost:8081', { waitUntil: 'networkidle0' });
+    await page.goto('http://localhost:53151', { waitUntil: 'domcontentloaded', timeout: 10000 });
 
     console.log('Page loaded. Waiting 5s for hydration...');
     await new Promise(r => setTimeout(r, 5000));
+
+    await page.screenshot({ path: 'test_screen.png' });
+    console.log('Screenshot saved to test_screen.png');
 
     await browser.close();
 })();

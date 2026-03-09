@@ -3,6 +3,7 @@ FROM public.ecr.aws/docker/library/node:20-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
+COPY patches/ ./patches/
 RUN npm ci
 
 COPY . .
