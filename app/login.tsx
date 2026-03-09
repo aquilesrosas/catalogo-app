@@ -233,6 +233,28 @@ export default function LoginScreen() {
                             <Pressable style={styles.skipBtn} onPress={() => router.back()}>
                                 <Text style={styles.skipBtnText}>Continuar sin cuenta</Text>
                             </Pressable>
+                            <Pressable
+                                style={styles.changeConfigBtn}
+                                onPress={() => {
+                                    Alert.alert(
+                                        'Cambiar de Local',
+                                        '¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.',
+                                        [
+                                            { text: 'Cancelar', style: 'cancel' },
+                                            {
+                                                text: 'Sí, cambiar',
+                                                style: 'destructive',
+                                                onPress: () => {
+                                                    clearConfig();
+                                                    router.replace('/config_setup');
+                                                }
+                                            }
+                                        ]
+                                    );
+                                }}
+                            >
+                                <Text style={styles.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
+                            </Pressable>
                         </View>
                     )}
 
