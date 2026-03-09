@@ -294,7 +294,7 @@ export default function CheckoutScreen() {
                     {tipoEntrega === 'DELIVERY' && (
                         <View style={styles.mixtoArea}>
                             <Text style={styles.inputLabel}>Ubicación de entrega *</Text>
-                            <Text style={styles.mapHelpText}>Moví el mapa y centrá el puntero en tu casa real.</Text>
+                            <Text style={styles.mapHelpText}>Buscá tu dirección y ajustá con el mapa para mayor precisión.</Text>
 
                             <View style={styles.mapContainer}>
                                 {locationLoading && !mapLocation ? (
@@ -306,16 +306,22 @@ export default function CheckoutScreen() {
                                     <LocationPickerMap
                                         initialLocation={mapLocation || undefined}
                                         onLocationSelect={(lat, lng) => setMapLocation({ lat, lng })}
+                                        onAddressResolved={(address) => {
+                                            // Auto-fill the address if empty
+                                            if (!direccion.trim()) {
+                                                setDireccion(address);
+                                            }
+                                        }}
                                     />
                                 )}
                             </View>
 
-                            <Text style={styles.inputLabel}>Detalles de entrega (Piso, Depto) *</Text>
+                            <Text style={styles.inputLabel}>Dirección de entrega *</Text>
                             <TextInput
                                 style={styles.input}
                                 value={direccion}
                                 onChangeText={setDireccion}
-                                placeholder="Ej: Portón verde, depto 4B"
+                                placeholder="Ej: Av. San Martín 123, Piso 2B"
                                 placeholderTextColor="#aaa"
                             />
                         </View>
@@ -595,7 +601,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     mapContainer: {
-        height: 250,
+        height: 350,
         marginVertical: 12,
         borderRadius: 12,
         overflow: 'hidden',
