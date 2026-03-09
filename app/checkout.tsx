@@ -149,13 +149,19 @@ export default function CheckoutScreen() {
 
             console.log('[Checkout] Sending payload:', JSON.stringify(payload));
             const result = await createOrder(payload);
-            console.log('[Checkout] Order created:', JSON.stringify(result));
+            console.log('[Checkout] Order result:', JSON.stringify(result));
 
             clearCart();
 
+            // Handle different response formats from backend
+            const order = result?.order || result;
+            const orderId = order?.id || (order as any)?.id_pedido || '?';
+            const orderTotal = order?.total || total;
+            const orderMessage = result?.message || 'Pedido creado exitosamente';
+
             showAlert(
                 '✅ ¡Pedido enviado!',
-                `Pedido #${result.order.id}\n${result.message}\n\nTotal: ${formatPrice(result.order.total)}`,
+                `Pedido #${orderId}\n${orderMessage}\n\nTotal: ${formatPrice(orderTotal)}`,
                 () => router.replace('/')
             );
         } catch (err: any) {
