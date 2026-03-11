@@ -24,8 +24,8 @@ export default function SearchBar({ value, onSearch }: SearchBarProps) {
             <Text style={styles.icon}>🔍</Text>
             <TextInput
                 style={styles.input}
-                placeholder="Buscar productos..."
-                placeholderTextColor="#999"
+                placeholder="¿Qué tenés ganas de comer hoy?"
+                placeholderTextColor="#A0A0A0"
                 defaultValue={value}
                 onChangeText={handleChange}
                 returnKeyType="search"
@@ -39,22 +39,29 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F5F5F5',
-        borderRadius: 12,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
         marginHorizontal: 16,
-        marginTop: 8,
-        paddingHorizontal: 12,
-        height: 44,
+        marginVertical: 14,
+        paddingHorizontal: 16,
+        height: 52,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        elevation: 3,
         borderWidth: 1,
-        borderColor: '#E8E8E8',
+        borderColor: '#F0F0F0',
     },
     icon: {
-        fontSize: 16,
-        marginRight: 8,
+        fontSize: 18,
+        marginRight: 10,
+        color: '#757575',
     },
     input: {
         flex: 1,
-        fontSize: 15,
+        fontSize: 16,
         color: '#1a1a1a',
+        fontWeight: '500',
     },
 });

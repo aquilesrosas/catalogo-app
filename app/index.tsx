@@ -7,6 +7,7 @@ import {
     RefreshControl,
     Text,
     Pressable,
+    Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCatalogStore } from '@/stores/catalogStore';
@@ -67,7 +68,40 @@ export default function HomeScreen() {
     };
 
     const renderHeader = () => (
-        <View>
+        <View style={styles.headerWrapper}>
+            {/* HERO BANNER PREMIUM */}
+            <View style={styles.heroBanner}>
+                <View style={styles.heroContent}>
+                    <Text style={styles.heroTitle}>Ofertas Top 🔥</Text>
+                    <Text style={styles.heroSubtitle}>Hasta 30% off en seleccionados</Text>
+                    <Pressable style={styles.heroBtn}>
+                        <Text style={styles.heroBtnText}>Ver Promos</Text>
+                    </Pressable>
+                </View>
+                {/* Placeholder graphic block */}
+                <View style={styles.heroGraphic}>
+                    <Text style={styles.heroEmoji}>🍔🍕</Text>
+                </View>
+            </View>
+
+            {/* BUSCADOR PROMINENTE */}
+            <SearchBar value={searchQuery} onSearch={setSearch} />
+
+            {/* CHIPS DE NAVEGACION (Circulos) */}
+            <CategoryChips
+                categories={categories}
+                selectedId={selectedCategory}
+                onSelect={setCategory}
+            />
+
+            {/* ERROR BANNER */}
+            {error ? (
+                <View style={styles.errorBanner}>
+                    <Text style={styles.errorText}>⚠️ {error}</Text>
+                </View>
+            ) : null}
+
+            {/* KIOSK / REGISTER (Solo si es pertinente para UX) */}
             {showBanner && (
                 <Pressable
                     style={styles.registerBanner}
@@ -77,11 +111,8 @@ export default function HomeScreen() {
                         <Text style={styles.registerEmoji}>👋</Text>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.registerTitle}>Creá tu cuenta gratis</Text>
-                            <Text style={styles.registerSubtitle}>
-                                Guardá tus datos y pedí más rápido
-                            </Text>
+                            <Text style={styles.registerSubtitle}>Guardá tus datos y pedí más rápido</Text>
                         </View>
-                        <Text style={styles.registerArrow}>›</Text>
                     </View>
                     <Pressable
                         style={styles.dismissBtn}
@@ -91,33 +122,6 @@ export default function HomeScreen() {
                         <Text style={styles.dismissText}>×</Text>
                     </Pressable>
                 </Pressable>
-            )}
-
-            {/* Kiosk Mode Button */}
-            <Pressable
-                style={styles.kioskBanner}
-                onPress={() => router.push('/kiosk')}
-            >
-                <View style={styles.kioskContent}>
-                    <Text style={styles.kioskEmoji}>🍔</Text>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.kioskTitle}>{kioskTitle || '🍔 Pedir Comida'}</Text>
-                        <Text style={styles.kioskSubtitle}>Tocá para hacer tu pedido</Text>
-                    </View>
-                    <Text style={styles.kioskArrow}>›</Text>
-                </View>
-            </Pressable>
-
-            <SearchBar value={searchQuery} onSearch={setSearch} />
-            <CategoryChips
-                categories={categories}
-                selectedId={selectedCategory}
-                onSelect={setCategory}
-            />
-            {error && (
-                <View style={styles.errorBanner}>
-                    <Text style={styles.errorText}>⚠️ {error}</Text>
-                </View>
             )}
         </View>
     );
@@ -132,35 +136,45 @@ export default function HomeScreen() {
     }
 
     return (
-        <FlatList
-            data={products}
-            keyExtractor={(item) => item.id_producto.toString()}
-            renderItem={({ item }) => <ProductCard product={item} />}
-            numColumns={2}
-            columnWrapperStyle={styles.row}
-            contentContainerStyle={styles.list}
-            ListHeaderComponent={renderHeader}
-            ListEmptyComponent={renderEmpty}
-            ListFooterComponent={renderFooter}
-            onEndReached={() => {
-                if (hasMore && !loadingMore) fetchNextPage();
-            }}
-            onEndReachedThreshold={0.5}
-            refreshControl={
-                <RefreshControl
-                    refreshing={loading && products.length > 0}
-                    onRefresh={refresh}
-                    colors={['#2E7D32']}
-                    tintColor="#2E7D32"
-                />
-            }
-            // ─── Performance optimizations ───
-            initialNumToRender={6}
-            maxToRenderPerBatch={8}
-            windowSize={5}
-            removeClippedSubviews={true}
-            style={styles.container}
-        />
+        <View style={styles.container}>
+            <FlatList
+                data={products}
+                keyExtractor={(item) => item.id_producto.toString()}
+                renderItem={({ item }) => <ProductCard product={item} />}
+                numColumns={2}
+                columnWrapperStyle={styles.row}
+                contentContainerStyle={styles.list}
+                ListHeaderComponent={renderHeader}
+                ListEmptyComponent={renderEmpty}
+                ListFooterComponent={renderFooter}
+                onEndReached={() => {
+                    if (hasMore && !loadingMore) fetchNextPage();
+                }}
+                onEndReachedThreshold={0.5}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={loading && products.length > 0}
+                        onRefresh={refresh}
+                        colors={['#FFC107']}
+                        tintColor="#FFC107"
+                    />
+                }
+                initialNumToRender={6}
+                maxToRenderPerBatch={8}
+                windowSize={5}
+                removeClippedSubviews={true}
+            />
+
+            {/* FAB BOT IA */}
+            <Pressable
+                style={styles.fab}
+                onPress={() => {
+                    Linking.openURL('https://wa.me/5491100000000?text=Hola,%20necesito%20ayuda%20con%20mi%20pedido');
+                }}
+            >
+                <Text style={styles.fabIcon}>🤖</Text>
+            </Pressable>
+        </View>
     );
 }
 
@@ -278,5 +292,82 @@ const styles = StyleSheet.create({
         color: '#FF9100',
         fontSize: 28,
         fontWeight: '300',
+    },
+    // ─── Hero Banner Premium ───
+    headerWrapper: {
+        backgroundColor: '#FAFAFA',
+        paddingTop: 8,
+    },
+    heroBanner: {
+        marginHorizontal: 16,
+        marginBottom: 8,
+        height: 140,
+        backgroundColor: '#FF6F00',
+        borderRadius: 20,
+        flexDirection: 'row',
+        overflow: 'hidden',
+        shadowColor: '#FF6F00',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    heroContent: {
+        flex: 1,
+        padding: 20,
+        justifyContent: 'center',
+    },
+    heroTitle: {
+        color: '#FFF',
+        fontSize: 22,
+        fontWeight: '900',
+    },
+    heroSubtitle: {
+        color: '#FFE0B2',
+        fontSize: 13,
+        marginTop: 4,
+        marginBottom: 12,
+    },
+    heroBtn: {
+        backgroundColor: '#FFF',
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+    },
+    heroBtnText: {
+        color: '#FF6F00',
+        fontWeight: 'bold',
+        fontSize: 12,
+    },
+    heroGraphic: {
+        width: 100,
+        backgroundColor: '#FF8F00',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    heroEmoji: {
+        fontSize: 48,
+        transform: [{ rotate: '-15deg' }],
+    },
+    // ─── FAB Bot ───
+    fab: {
+        position: 'absolute',
+        right: 20,
+        bottom: 20,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#25D366', // WhatsApp color
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 8,
+    },
+    fabIcon: {
+        fontSize: 30,
     },
 });
