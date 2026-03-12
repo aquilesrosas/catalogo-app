@@ -84,6 +84,21 @@ export default function HomeScreen() {
                 </View>
             </View>
 
+            {/* MODULO PEDIR COMIDA (Kiosk) */}
+            <Pressable
+                style={styles.kioskBanner}
+                onPress={() => router.push('/kiosk')}
+            >
+                <View style={styles.kioskContent}>
+                    <Text style={styles.kioskEmoji}>🍔</Text>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.kioskTitle}>{kioskTitle || '🍔 Pedir Comida'}</Text>
+                        <Text style={styles.kioskSubtitle}>Tocá para hacer tu pedido</Text>
+                    </View>
+                    <Text style={styles.kioskArrow}>›</Text>
+                </View>
+            </Pressable>
+
             {/* BUSCADOR PROMINENTE */}
             <SearchBar value={searchQuery} onSearch={setSearch} />
 
