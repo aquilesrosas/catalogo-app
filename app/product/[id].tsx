@@ -52,6 +52,20 @@ export default function ProductDetailScreen() {
 
     const parsedQty = parseFloat(qtyText.replace(',', '.')) || 0;
 
+    // Sanitize quantity input based on product type
+    const handleQtyChange = (text: string) => {
+        if (!product) { setQtyText(text); return; }
+        if (product.sells_by_weight) {
+            // Allow decimals for kg/lt products
+            const sanitized = text.replace(/[^0-9.,]/g, '').replace(',', '.');
+            setQtyText(sanitized);
+        } else {
+            // Only allow integers for unit products
+            const sanitized = text.replace(/[^0-9]/g, '');
+            setQtyText(sanitized);
+        }
+    };
+
     const handleAddToCart = () => {
         if (!product || !product.in_stock || parsedQty <= 0) return;
         Keyboard.dismiss();
@@ -153,8 +167,8 @@ export default function ProductDetailScreen() {
                                 <TextInput
                                     style={styles.qtyInput}
                                     value={qtyText}
-                                    onChangeText={setQtyText}
-                                    keyboardType="decimal-pad"
+                                    onChangeText={handleQtyChange}
+                                    keyboardType={isByWeight ? 'decimal-pad' : 'number-pad'}
                                     selectTextOnFocus
                                     returnKeyType="done"
                                     onSubmitEditing={() => Keyboard.dismiss()}
