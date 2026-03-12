@@ -74,7 +74,7 @@ export default function HomeScreen() {
                 <View style={styles.heroContent}>
                     <Text style={styles.heroTitle}>Ofertas Top 🔥</Text>
                     <Text style={styles.heroSubtitle}>Hasta 30% off en seleccionados</Text>
-                    <Pressable style={styles.heroBtn}>
+                    <Pressable style={styles.heroBtn} onPress={() => router.push('/ofertas')}>
                         <Text style={styles.heroBtnText}>Ver Promos</Text>
                     </Pressable>
                 </View>

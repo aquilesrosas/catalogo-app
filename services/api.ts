@@ -196,10 +196,20 @@ export async function getStoreConfig(): Promise<StoreConfig> {
 export interface Oferta {
     id: number;
     nombre: string;
-    tipo: 'PORCENTAJE' | 'MONTO_FIJO' | 'N_X_M' | 'COMBO' | 'N_POR_MONTO';
+    descripcion: string;
+    tipo: 'PCT_OFF' | 'FIXED_PRICE' | 'NXM' | 'COMBO' | 'MIN_AMOUNT';
     valor: string;
-    es_global: boolean;
-    productos_ids: number[];
+    cantidad_requerida: number;
+    cantidad_bonificada: number;
+    monto_minimo: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+    activa: boolean;
+    aplica_a_todo: boolean;
+    imagen_banner: string | null;
+    color_badge: string;
+    visible_catalogo: boolean;
+    combo_items: Array<{ id: number; producto: number; producto_nombre: string; cantidad: string }>;
 }
 
 export async function getActiveOffers(): Promise<Oferta[]> {

@@ -277,6 +277,12 @@ function RootLayoutContent() {
                     }}
                 />
                 <Stack.Screen
+                    name="ofertas"
+                    options={{
+                        headerShown: false,
+                    }}
+                />
+                <Stack.Screen
                     name="login"
                     options={{
                         title: 'Mi cuenta',
