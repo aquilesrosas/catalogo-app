@@ -242,11 +242,17 @@ export default function KioskScreen() {
 
         store.setOrderProcessing(true);
         try {
+            // Resolve payment method type string from selected ID
+            const selectedMethod = paymentMethods.find(
+                (m: any) => m.id_metodo_pago === store.selectedPaymentMethodId || m.id === store.selectedPaymentMethodId
+            ) as any;
+            const paymentType = selectedMethod?.tipo || selectedMethod?.id || 'EFECTIVO';
+
             const payload: any = {
                 source: store.kioskId ? 'table' : 'kiosk',
                 tipo_entrega: store.kioskId ? 'MESA' : 'LOCAL',
                 kiosk_id: store.kioskId || 'local-kiosco',
-                payment_method: store.selectedPaymentMethodId,
+                payment_method: paymentType,
                 items: store.cart.map((item) => ({
                     product_id: item.product.id_producto,
                     quantity: item.quantity,
@@ -255,8 +261,17 @@ export default function KioskScreen() {
             };
             if (store.selectedClient && store.selectedClient.id) {
                 payload.cliente_id = store.selectedClient.id;
-            } else if (store.selectedClient && store.selectedClient.name) {
+            }
+            if (store.selectedClient && store.selectedClient.name) {
                 payload.client_name = store.selectedClient.name;
+            }
+            if (store.selectedClient && store.selectedClient.phone) {
+                payload.client_phone = store.selectedClient.phone;
+            }
+            // For anonymous kiosk orders, provide a fallback name
+            if (!payload.client_name && !payload.cliente_id) {
+                payload.client_name = 'Cliente Kiosco';
+                payload.client_phone = '0000000000';
             }
 
             const result = await createOrder(payload);
@@ -270,7 +285,12 @@ export default function KioskScreen() {
                 [{ text: 'Nuevo Pedido', onPress: () => store.resetKiosk() }]
             );
         } catch (e: any) {
-            Alert.alert('Error', 'No se pudo enviar el pedido.');
+            const errorMsg = e?.response?.data?.error
+                || e?.response?.data?.items?.join('\n')
+                || e?.response?.data?.detail
+                || 'No se pudo enviar el pedido.';
+            Alert.alert('Error', errorMsg);
+            console.error('Kiosk order error:', JSON.stringify(e?.response?.data));
         } finally {
             store.setOrderProcessing(false);
         }
