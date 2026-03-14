@@ -356,6 +356,9 @@ export default function LoginScreen() {
                                                     text: 'Sí, cambiar',
                                                     style: 'destructive',
                                                     onPress: () => {
+                                                        const { clearCart } = useCartStore.getState();
+                                                        clearCart();
+                                                        logout();
                                                         clearConfig();
                                                         router.replace('/config_setup');
                                                     }
