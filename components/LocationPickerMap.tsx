@@ -16,6 +16,7 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
   showCrosshair = true
 }) => {
   const webviewRef = useRef<WebView>(null);
+  const lastSearchTime = useRef(0);
   const [searchText, setSearchText] = React.useState('');
   const [searching, setSearching] = React.useState(false);
   const [resolvedAddress, setResolvedAddress] = React.useState('');
@@ -51,24 +52,14 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
         const userNumber = matchNumber ? matchNumber[0] : null;
         
         let finalAddress = display_name;
-        if (address) {
-          const parts = [];
-          if (address.road) parts.push(address.road);
-          
-          if (address.house_number) {
-            parts.push(address.house_number);
-          } else if (userNumber) {
-            parts.push(userNumber);
-          }
-          
-          if (!address.road && display_name) parts.push(display_name.split(',')[0]);
-          
-          const city = address.city || address.town || address.village || '';
-          const state = address.state || '';
-          if (city) parts.push(city);
-          if (state && state !== city) parts.push(state);
-          
-          finalAddress = parts.join(', ');
+        
+        // OpenStreetMap often removes the exact house number if it doesn't have it mapped.
+        // If the user typed a number and it's missing from the OSM formatted address, 
+        // we force it back into the first component (the street name).
+        if (userNumber && !finalAddress.includes(userNumber)) {
+            const parts = finalAddress.split(', ');
+            parts[0] = `${parts[0]} ${userNumber}`;
+            finalAddress = parts.join(', ');
         }
         
         // Move the webview map
@@ -80,6 +71,7 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
         onLocationSelect(newLat, newLng);
         setResolvedAddress(finalAddress);
         onAddressResolved?.(finalAddress);
+        lastSearchTime.current = Date.now();
       } else {
         Alert.alert('No encontrado', 'No se encontró la dirección. Probá con más detalle.');
       }
@@ -219,6 +211,8 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
                 onLocationSelect(data.lat, data.lng);
               }
               if (data.type === 'address' && data.address) {
+                // Don't let reverse geocode override a recent search result (3s cooldown)
+                if (Date.now() - lastSearchTime.current < 3000) return;
                 setResolvedAddress(data.address);
                 onAddressResolved?.(data.address);
               }

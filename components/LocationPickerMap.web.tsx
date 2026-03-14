@@ -15,6 +15,7 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
   showCrosshair = true
 }) => {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const lastSearchTime = useRef(0);
   const [searchText, setSearchText] = React.useState('');
   const [searching, setSearching] = React.useState(false);
   const [resolvedAddress, setResolvedAddress] = React.useState('');
@@ -28,6 +29,8 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
           onLocationSelect(data.lat, data.lng);
         }
         if (data.type === 'address' && data.address) {
+          // Don't let reverse geocode override a recent search result (3s cooldown)
+          if (Date.now() - lastSearchTime.current < 3000) return;
           setResolvedAddress(data.address);
           onAddressResolved?.(data.address);
         }
@@ -87,6 +90,7 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
         onLocationSelect(newLat, newLng);
         setResolvedAddress(finalAddress);
         onAddressResolved?.(finalAddress);
+        lastSearchTime.current = Date.now();
       } else {
         window.alert('No se encontró la dirección. Probá con más detalle.');
       }

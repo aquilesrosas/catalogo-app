@@ -307,10 +307,8 @@ export default function CheckoutScreen() {
                                         initialLocation={mapLocation || undefined}
                                         onLocationSelect={(lat, lng) => setMapLocation({ lat, lng })}
                                         onAddressResolved={(address) => {
-                                            // Auto-fill the address if empty
-                                            if (!direccion.trim()) {
-                                                setDireccion(address);
-                                            }
+                                            // Always update with the latest resolved address
+                                            setDireccion(address);
                                         }}
                                     />
                                 )}
