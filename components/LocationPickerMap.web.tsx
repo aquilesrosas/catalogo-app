@@ -43,11 +43,21 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
     try {
       // Bias search toward user's current area
       const viewbox = initialLocation
-        ? `&viewbox=${initialLocation.lng - 0.5},${initialLocation.lat + 0.5},${initialLocation.lng + 0.5},${initialLocation.lat - 0.5}`
+        ? `&viewbox=${initialLocation.lng - 0.5},${initialLocation.lat + 0.5},${initialLocation.lng + 0.5},${initialLocation.lat - 0.5}&bounded=1`
         : '';
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchText.trim() + ', Salta, Argentina')}&limit=1${viewbox}`;
+      // Use structured query: street param keeps the number attached
+      const query = searchText.trim();
+      const url = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(query)}&city=Salta&state=Salta&country=Argentina&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'es' } });
-      const results = await res.json();
+      let results = await res.json();
+      
+      // If structured search didn't find results, fall back to free text
+      if (!results || results.length === 0) {
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
+        const fallbackRes = await fetch(fallbackUrl, { headers: { 'Accept-Language': 'es' } });
+        results = await fallbackRes.json();
+      }
+      
       if (results && results.length > 0) {
         const { lat, lon, display_name } = results[0];
         const newLat = parseFloat(lat);
@@ -123,8 +133,18 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
               })
               .then(function(r) { return r.json(); })
               .then(function(data) {
-                if (data && data.display_name) {
-                  window.parent.postMessage(JSON.stringify({ type: 'address', address: data.display_name }), '*');
+                if (data && data.address) {
+                  var addr = data.address;
+                  var parts = [];
+                  if (addr.road) parts.push(addr.road);
+                  if (addr.house_number) parts.push(addr.house_number);
+                  if (!addr.road && data.display_name) parts.push(data.display_name.split(',')[0]);
+                  var city = addr.city || addr.town || addr.village || '';
+                  var state = addr.state || '';
+                  if (city) parts.push(city);
+                  if (state && state !== city) parts.push(state);
+                  var cleanAddress = parts.join(', ');
+                  window.parent.postMessage(JSON.stringify({ type: 'address', address: cleanAddress || data.display_name }), '*');
                 }
               })
               .catch(function() {});
