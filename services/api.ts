@@ -16,8 +16,14 @@ const api = axios.create({
 // Tenant and Auth interceptor
 api.interceptors.request.use(async (config) => {
     try {
-        // 1. Resolve Tenant Slug
         const slug = useConfigStore.getState().tenantSlug;
+        
+        // If there's no slug, but the request isn't to a global endpoint (like auth/login without tenant? no, all our endpoints are tenant-specific)
+        // We must cancel the request to prevent firing to 'https://facilgestion.site/public/v1/products/' which will 404 or fail.
+        if (!slug && config.url && !config.url.startsWith('http')) {
+             return Promise.reject(new Error("No_Tenant_Selected"));
+        }
+
         if (slug && config.url && !config.url.startsWith('http')) {
             // Ensure we don't double the slug if it was already added by a retry
             if (!config.url.startsWith(slug)) {

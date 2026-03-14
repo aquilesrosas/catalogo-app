@@ -18,6 +18,7 @@ import { useRouter, Stack } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
 import { requestOTP, verifyOTP, logoutAPI, getProfile, loginPassword, setPassword, registerAPI } from '@/services/api';
 import { useConfigStore } from '@/stores/configStore';
+import { useCartStore } from '@/stores/cartStore';
 
 type Step = 'phone' | 'password' | 'code' | 'set_password' | 'logged_in';
 
@@ -246,6 +247,9 @@ export default function LoginScreen() {
                                                     text: 'Sí, cambiar',
                                                     style: 'destructive',
                                                     onPress: () => {
+                                                        const { clearCart } = useCartStore.getState();
+                                                        clearCart();
+                                                        logout();
                                                         clearConfig();
                                                         router.replace('/config_setup');
                                                     }

@@ -69,25 +69,14 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
         const userNumber = matchNumber ? matchNumber[0] : null;
         
         let finalAddress = display_name;
-        if (address) {
-          const parts = [];
-          if (address.road) parts.push(address.road);
-          
-          // Use OSM matched number, or fallback to user typed number
-          if (address.house_number) {
-            parts.push(address.house_number);
-          } else if (userNumber) {
-            parts.push(userNumber);
-          }
-          
-          if (!address.road && display_name) parts.push(display_name.split(',')[0]);
-          
-          const city = address.city || address.town || address.village || '';
-          const state = address.state || '';
-          if (city) parts.push(city);
-          if (state && state !== city) parts.push(state);
-          
-          finalAddress = parts.join(', ');
+        
+        // OpenStreetMap often removes the exact house number if it doesn't have it mapped.
+        // If the user typed a number and it's missing from the OSM formatted address, 
+        // we force it back into the first component (the street name).
+        if (userNumber && !finalAddress.includes(userNumber)) {
+            const parts = finalAddress.split(', ');
+            parts[0] = `${parts[0]} ${userNumber}`;
+            finalAddress = parts.join(', ');
         }
         
         // Move the iframe map
