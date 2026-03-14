@@ -59,17 +59,45 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
       }
       
       if (results && results.length > 0) {
-        const { lat, lon, display_name } = results[0];
+        const { lat, lon, display_name, address } = results[0];
         const newLat = parseFloat(lat);
         const newLng = parseFloat(lon);
+        
+        // Extract number from user's search text to preserve it,
+        // since OpenStreetMap often drops numbers it doesn't have exactly.
+        const matchNumber = searchText.match(/\b\d+\b/);
+        const userNumber = matchNumber ? matchNumber[0] : null;
+        
+        let finalAddress = display_name;
+        if (address) {
+          const parts = [];
+          if (address.road) parts.push(address.road);
+          
+          // Use OSM matched number, or fallback to user typed number
+          if (address.house_number) {
+            parts.push(address.house_number);
+          } else if (userNumber) {
+            parts.push(userNumber);
+          }
+          
+          if (!address.road && display_name) parts.push(display_name.split(',')[0]);
+          
+          const city = address.city || address.town || address.village || '';
+          const state = address.state || '';
+          if (city) parts.push(city);
+          if (state && state !== city) parts.push(state);
+          
+          finalAddress = parts.join(', ');
+        }
+        
         // Move the iframe map
         iframeRef.current?.contentWindow?.postMessage(
           JSON.stringify({ type: 'moveTo', lat: newLat, lng: newLng }),
           '*'
         );
         onLocationSelect(newLat, newLng);
-        setResolvedAddress(display_name);
-        onAddressResolved?.(display_name);
+        setResolvedAddress(finalAddress);
+        onAddressResolved?.(finalAddress);
       } else {
         window.alert('No se encontró la dirección. Probá con más detalle.');
       }
