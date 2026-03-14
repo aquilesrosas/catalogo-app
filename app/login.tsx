@@ -238,24 +238,27 @@ export default function LoginScreen() {
                                 <Pressable
                                     style={styles.changeConfigBtn}
                                     onPress={() => {
-                                        Alert.alert(
-                                            'Cambiar de Local',
-                                            '¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.',
-                                            [
-                                                { text: 'Cancelar', style: 'cancel' },
-                                                {
-                                                    text: 'Sí, cambiar',
-                                                    style: 'destructive',
-                                                    onPress: () => {
-                                                        const { clearCart } = useCartStore.getState();
-                                                        clearCart();
-                                                        logout();
-                                                        clearConfig();
-                                                        router.replace('/config_setup');
-                                                    }
-                                                }
-                                            ]
-                                        );
+                                        const doChange = () => {
+                                            const { clearCart } = useCartStore.getState();
+                                            clearCart();
+                                            logout();
+                                            clearConfig();
+                                            router.replace('/config_setup');
+                                        };
+                                        if (Platform.OS === 'web') {
+                                            if (window.confirm('¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.')) {
+                                                doChange();
+                                            }
+                                        } else {
+                                            Alert.alert(
+                                                'Cambiar de Local',
+                                                '¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.',
+                                                [
+                                                    { text: 'Cancelar', style: 'cancel' },
+                                                    { text: 'Sí, cambiar', style: 'destructive', onPress: doChange }
+                                                ]
+                                            );
+                                        }
                                     }}
                                 >
                                     <Text style={styles.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
@@ -347,24 +350,27 @@ export default function LoginScreen() {
                                 <Pressable
                                     style={styles.changeConfigBtn}
                                     onPress={() => {
-                                        Alert.alert(
-                                            'Cambiar de Local',
-                                            '¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.',
-                                            [
-                                                { text: 'Cancelar', style: 'cancel' },
-                                                {
-                                                    text: 'Sí, cambiar',
-                                                    style: 'destructive',
-                                                    onPress: () => {
-                                                        const { clearCart } = useCartStore.getState();
-                                                        clearCart();
-                                                        logout();
-                                                        clearConfig();
-                                                        router.replace('/config_setup');
-                                                    }
-                                                }
-                                            ]
-                                        );
+                                        const doChange = () => {
+                                            const { clearCart } = useCartStore.getState();
+                                            clearCart();
+                                            logout();
+                                            clearConfig();
+                                            router.replace('/config_setup');
+                                        };
+                                        if (Platform.OS === 'web') {
+                                            if (window.confirm('¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.')) {
+                                                doChange();
+                                            }
+                                        } else {
+                                            Alert.alert(
+                                                'Cambiar de Local',
+                                                '¿Estás seguro? Se borrará el local actual y tendrás que ingresar el código de nuevo.',
+                                                [
+                                                    { text: 'Cancelar', style: 'cancel' },
+                                                    { text: 'Sí, cambiar', style: 'destructive', onPress: doChange }
+                                                ]
+                                            );
+                                        }
                                     }}
                                 >
                                     <Text style={styles.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
