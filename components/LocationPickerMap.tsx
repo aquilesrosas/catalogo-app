@@ -24,24 +24,62 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
     if (!searchText.trim()) return;
     setSearching(true);
     try {
+      // Bias search toward user's current area
       const viewbox = initialLocation
-        ? `&viewbox=${initialLocation.lng - 0.5},${initialLocation.lat + 0.5},${initialLocation.lng + 0.5},${initialLocation.lat - 0.5}`
+        ? `&viewbox=${initialLocation.lng - 0.5},${initialLocation.lat + 0.5},${initialLocation.lng + 0.5},${initialLocation.lat - 0.5}&bounded=1`
         : '';
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchText.trim() + ', Salta, Argentina')}&limit=1${viewbox}`;
+      // Use structured query: street param keeps the number attached
+      const query = searchText.trim();
+      const url = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(query)}&city=Salta&state=Salta&country=Argentina&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'es' } });
-      const results = await res.json();
+      let results = await res.json();
+      
+      // If structured search didn't find results, fall back to free text
+      if (!results || results.length === 0) {
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
+        const fallbackRes = await fetch(fallbackUrl, { headers: { 'Accept-Language': 'es' } });
+        results = await fallbackRes.json();
+      }
+      
       if (results && results.length > 0) {
-        const { lat, lon, display_name } = results[0];
+        const { lat, lon, display_name, address } = results[0];
         const newLat = parseFloat(lat);
         const newLng = parseFloat(lon);
+        
+        // Extract number from user's search text to preserve it
+        const matchNumber = searchText.match(/\b\d+\b/);
+        const userNumber = matchNumber ? matchNumber[0] : null;
+        
+        let finalAddress = display_name;
+        if (address) {
+          const parts = [];
+          if (address.road) parts.push(address.road);
+          
+          if (address.house_number) {
+            parts.push(address.house_number);
+          } else if (userNumber) {
+            parts.push(userNumber);
+          }
+          
+          if (!address.road && display_name) parts.push(display_name.split(',')[0]);
+          
+          const city = address.city || address.town || address.village || '';
+          const state = address.state || '';
+          if (city) parts.push(city);
+          if (state && state !== city) parts.push(state);
+          
+          finalAddress = parts.join(', ');
+        }
+        
         // Move the webview map
         webviewRef.current?.injectJavaScript(`
-                    map.setView([${newLat}, ${newLng}], 17);
+                    isProgrammaticMove = true;
+                    map.setView([${newLat}, ${newLng}], 17, { animate: false });
                     true;
                 `);
         onLocationSelect(newLat, newLng);
-        setResolvedAddress(display_name);
-        onAddressResolved?.(display_name);
+        setResolvedAddress(finalAddress);
+        onAddressResolved?.(finalAddress);
       } else {
         Alert.alert('No encontrado', 'No se encontró la dirección. Probá con más detalle.');
       }
@@ -82,6 +120,7 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
       <script>
         let map;
         let reverseTimer = null;
+        let isProgrammaticMove = false;
 
         function initMap() {
           const startLat = ${initialLocation?.lat || -24.7821};
@@ -94,6 +133,13 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
           }).addTo(map);
 
           map.on('moveend', function() {
+            if (isProgrammaticMove) {
+              isProgrammaticMove = false;
+              const center = map.getCenter();
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'location', lat: center.lat, lng: center.lng }));
+              return;
+            }
+            
             const center = map.getCenter();
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'location', lat: center.lat, lng: center.lng }));
             
@@ -105,8 +151,18 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
               })
               .then(function(r) { return r.json(); })
               .then(function(data) {
-                if (data && data.display_name) {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'address', address: data.display_name }));
+                if (data && data.address) {
+                  var addr = data.address;
+                  var parts = [];
+                  if (addr.road) parts.push(addr.road);
+                  if (addr.house_number) parts.push(addr.house_number);
+                  if (!addr.road && data.display_name) parts.push(data.display_name.split(',')[0]);
+                  var city = addr.city || addr.town || addr.village || '';
+                  var state = addr.state || '';
+                  if (city) parts.push(city);
+                  if (state && state !== city) parts.push(state);
+                  var cleanAddress = parts.join(', ');
+                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'address', address: cleanAddress || data.display_name }));
                 }
               })
               .catch(function() {});

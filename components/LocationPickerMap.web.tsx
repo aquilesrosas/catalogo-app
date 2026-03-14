@@ -138,6 +138,7 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
       <script>
         let map;
         let reverseTimer = null;
+        let isProgrammaticMove = false;
 
         function initMap() {
           const startLat = ${initialLocation?.lat || -24.7821};
@@ -150,6 +151,13 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
           }).addTo(map);
 
           map.on('moveend', function() {
+            if (isProgrammaticMove) {
+              isProgrammaticMove = false;
+              const center = map.getCenter();
+              window.parent.postMessage(JSON.stringify({ type: 'location', lat: center.lat, lng: center.lng }), '*');
+              return;
+            }
+            
             const center = map.getCenter();
             window.parent.postMessage(JSON.stringify({ type: 'location', lat: center.lat, lng: center.lng }), '*');
             
@@ -184,7 +192,8 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
             try {
               var cmd = JSON.parse(e.data);
               if (cmd.type === 'moveTo' && cmd.lat && cmd.lng) {
-                map.setView([cmd.lat, cmd.lng], 17);
+                isProgrammaticMove = true;
+                map.setView([cmd.lat, cmd.lng], 17, { animate: false });
               }
             } catch(x) {}
           });
