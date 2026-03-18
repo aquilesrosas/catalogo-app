@@ -35,8 +35,10 @@ function ConfigSetupScreen() {
             // Intentamos cargar la config de la tienda para validar que el slug existe
             await getStoreConfig();
 
-            Alert.alert('✅ ¡Listo!', 'Configuración guardada correctamente');
-            router.replace('/');
+            // Wait for user to dismiss alert before navigating to prevent WindowManager crash on Android
+            Alert.alert('✅ ¡Listo!', 'Configuración guardada correctamente', [
+                { text: 'OK', onPress: () => router.replace('/') }
+            ]);
         } catch (err: any) {
             // Si falla, revertimos y avisamos
             setTenantSlug('');
@@ -47,10 +49,7 @@ function ConfigSetupScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <View style={styles.container}>
             <Stack.Screen options={{ title: 'Configuración Inicial', headerShown: false }} />
             <View style={styles.card}>
                 <Text style={styles.emoji}>🏘️</Text>
@@ -64,8 +63,6 @@ function ConfigSetupScreen() {
                     placeholder="Ej: mini_super1-"
                     value={slug}
                     onChangeText={setSlug}
-                    autoCapitalize="none"
-                    autoCorrect={false}
                 />
 
                 <Pressable
@@ -84,7 +81,7 @@ function ConfigSetupScreen() {
                     Necesitás el código para ver los productos y precios de tu tienda habitual.
                 </Text>
             </View>
-        </KeyboardAvoidingView>
+        </View>
     );
 }
 
