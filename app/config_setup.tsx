@@ -37,7 +37,7 @@ function ConfigSetupScreen() {
 
             // Wait for user to dismiss alert before navigating to prevent WindowManager crash on Android
             Alert.alert('✅ ¡Listo!', 'Configuración guardada correctamente', [
-                { text: 'OK', onPress: () => router.replace('/') }
+                { text: 'OK', onPress: () => router.push('/') }
             ]);
         } catch (err: any) {
             // Si falla, revertimos y avisamos

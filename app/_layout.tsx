@@ -233,6 +233,7 @@ function RootLayoutContent() {
                     options={{
                         headerShown: false,
                         gestureEnabled: false,
+                        animation: 'none',
                     }}
                 />
                 <Stack.Screen
