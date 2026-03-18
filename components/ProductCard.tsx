@@ -18,15 +18,6 @@ function ProductCard({ product }: ProductCardProps) {
     const router = useRouter();
     const addItem = useCartStore((s) => s.addItem);
     const offers = useCatalogStore((s) => s.offers); // Fetch offers
-    const fadeAnim = React.useRef(new Animated.Value(0)).current;
-
-    React.useEffect(() => {
-        Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-        }).start();
-    }, []);
 
     const handleAdd = (e: any) => {
         e.stopPropagation?.();
@@ -39,11 +30,11 @@ function ProductCard({ product }: ProductCardProps) {
 
     // Determine if product has an active offer
     const applicableOffer = offers.find(o =>
-        o.es_global || (o.productos_ids && o.productos_ids.includes(product.id_producto))
+        o.aplica_a_todo || (o.productos && o.productos.includes(product.id_producto))
     );
 
     return (
-        <Animated.View style={{ opacity: fadeAnim }}>
+        <View>
             <Pressable
                 style={({ pressed }) => [
                     styles.card,
@@ -71,9 +62,9 @@ function ProductCard({ product }: ProductCardProps) {
                     {applicableOffer && (
                         <View style={styles.offerBadge}>
                             <Text style={styles.offerBadgeText}>
-                                {applicableOffer.tipo === 'PORCENTAJE'
+                                {applicableOffer.tipo === 'PCT_OFF'
                                     ? `${applicableOffer.valor}% OFF`
-                                    : applicableOffer.tipo === 'MONTO_FIJO'
+                                    : applicableOffer.tipo === 'FIXED_PRICE'
                                         ? `-$${applicableOffer.valor}`
                                         : applicableOffer.nombre}
                             </Text>
@@ -110,7 +101,7 @@ function ProductCard({ product }: ProductCardProps) {
                     </View>
                 </View>
             </Pressable>
-        </Animated.View>
+        </View>
     );
 }
 

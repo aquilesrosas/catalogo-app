@@ -212,6 +212,7 @@ export interface Oferta {
     fecha_fin: string;
     activa: boolean;
     aplica_a_todo: boolean;
+    productos?: number[];
     imagen_banner: string | null;
     color_badge: string;
     visible_catalogo: boolean;

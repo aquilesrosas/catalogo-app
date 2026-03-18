@@ -177,7 +177,6 @@ export default function HomeScreen() {
                 initialNumToRender={6}
                 maxToRenderPerBatch={8}
                 windowSize={5}
-                removeClippedSubviews={true}
             />
 
             {/* FAB BOT IA */}
