@@ -50,7 +50,6 @@ function ConfigSetupScreen() {
 
     return (
         <View style={styles.container}>
-            <Stack.Screen options={{ title: 'Configuración Inicial', headerShown: false }} />
             <View style={styles.card}>
                 <Text style={styles.emoji}>🏘️</Text>
                 <Text style={styles.title}>Bienvenido al Catálogo</Text>
