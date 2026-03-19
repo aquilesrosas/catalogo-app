@@ -61,7 +61,7 @@ function ConfigSetupScreen() {
                 <TextInput
                     style={styles.input}
                     placeholder="Ej: mini_super1-"
-                    value={slug}
+                    defaultValue={slug}
                     onChangeText={setSlug}
                 />
 
