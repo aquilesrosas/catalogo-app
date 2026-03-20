@@ -41,6 +41,16 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
         const fallbackRes = await fetch(fallbackUrl, { headers: { 'Accept-Language': 'es' } });
         results = await fallbackRes.json();
       }
+
+      // If still no results, strip numbers and search for just the street
+      if (!results || results.length === 0) {
+        const queryWithoutNumbers = query.replace(/[0-9]/g, '').trim();
+        if (queryWithoutNumbers) {
+            const streetFallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(queryWithoutNumbers)}&city=Salta&state=Salta&country=Argentina&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
+            const streetFallbackRes = await fetch(streetFallbackUrl, { headers: { 'Accept-Language': 'es' } });
+            results = await streetFallbackRes.json();
+        }
+      }
       
       if (results && results.length > 0) {
         const { lat, lon, display_name, address } = results[0];

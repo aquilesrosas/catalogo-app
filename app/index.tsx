@@ -40,6 +40,7 @@ export default function HomeScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const kioskTitle = useConfigStore((s) => s.kioskTitle);
+    const slug = useConfigStore((s) => s.tenantSlug);
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const showBanner = !isLoggedIn() && !bannerDismissed;
 
@@ -51,7 +52,7 @@ export default function HomeScreen() {
             fetchCategories();
             fetchProducts(true);
         }
-    }, [params.kiosk]);
+    }, [params.kiosk, slug]);
 
     const renderFooter = () => {
         if (!loadingMore) return null;

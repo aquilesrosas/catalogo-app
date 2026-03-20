@@ -46,11 +46,17 @@ api.interceptors.request.use(async (config) => {
     return config;
 });
 
-// Retry simple (3 intentos con backoff)
+// Retry simple (3 intentos con backoff) solo si no es 4xx
 api.interceptors.response.use(
     (res) => res,
     async (error) => {
         const config = error.config;
+        
+        // Skip retry completely for 4xx Client Errors (404, 403, 400, etc) because retrying won't change them
+        if (error.response && error.response.status >= 400 && error.response.status < 500) {
+            return Promise.reject(error);
+        }
+
         if (!config || config._retryCount >= 3) return Promise.reject(error);
         config._retryCount = (config._retryCount || 0) + 1;
         const delay = config._retryCount * 1000;

@@ -11,6 +11,8 @@ import {
 import { useRouter } from 'expo-router';
 import { getActiveOffers, Oferta } from '@/services/api';
 
+import { useConfigStore } from '@/stores/configStore';
+
 const TIPO_LABELS: Record<string, string> = {
     PCT_OFF: '% Descuento',
     FIXED_PRICE: 'Precio Fijo',
@@ -49,13 +51,14 @@ const getOfertaDescription = (oferta: Oferta) => {
 };
 
 export default function OfertasScreen() {
+    const slug = useConfigStore((s) => s.tenantSlug);
     const [ofertas, setOfertas] = useState<Oferta[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
         loadOfertas();
-    }, []);
+    }, [slug]);
 
     const loadOfertas = async () => {
         setLoading(true);
