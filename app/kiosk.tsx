@@ -18,6 +18,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useKioskStore } from '@/stores/kioskStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useCartStore } from '@/stores/cartStore';
 import {
     getProducts,
     getCategories,
@@ -34,6 +35,15 @@ import { formatPrice } from '@/utils/format';
 const INACTIVITY_TIMEOUT = 60000; // 60 seconds
 const ADMIN_PIN = '2424'; // PIN para salir del kiosco
 const CONFIG_PIN = '1234'; // PIN para configurar categorías
+
+const EXTRAS = [
+    { id: 1001, name: 'Extra Queso', price: 500 },
+    { id: 1002, name: 'Extra Bacon', price: 800 },
+    { id: 1003, name: 'Huevo Frito', price: 300 },
+    { id: 1004, name: 'Sin Cebolla', price: 0 },
+    { id: 1005, name: 'Con Mayonesa', price: 0 },
+    { id: 1006, name: 'Con Ketchup', price: 0 },
+];
 
 // ─── Main Kiosk Screen ──────────────────────
 export default function KioskScreen() {
@@ -86,6 +96,8 @@ export default function KioskScreen() {
     // Builder local state
     const [builderQty, setBuilderQty] = useState(1);
     const [builderNotes, setBuilderNotes] = useState('');
+    const [selectedExtras, setSelectedExtras] = useState<any[]>([]);
+    const addItemToGlobalCart = useCartStore((s) => s.addItem);
 
     // Checkout local state
     const [identityQuery, setIdentityQuery] = useState('');
@@ -134,7 +146,7 @@ export default function KioskScreen() {
             if (timerRef.current) clearTimeout(timerRef.current);
             clearInterval(interval);
         };
-    }, [store.lastInteraction]);
+    }, [store.lastInteraction, store.resetKiosk]);
 
     // Fetch data on mount
     useEffect(() => {
@@ -216,10 +228,47 @@ export default function KioskScreen() {
     // ─── Handlers ────────────────────────────
     const handleAddToCart = () => {
         if (!store.builderProduct) return;
-        store.addToCart(store.builderProduct, builderQty, builderNotes);
+        
+        // Calculate total including extras if needed
+        const extrasTotal = selectedExtras.reduce((acc, curr) => acc + curr.price, 0);
+        const basePrice = parseFloat(store.builderProduct.price || store.builderProduct.precio_venta || '0');
+        
+        // Prepare description from extras + notes
+        const extrasNames = selectedExtras.map(e => e.name).join(', ');
+        let description = extrasNames;
+        if (builderNotes.trim()) {
+            description = description ? `${description}. Nota: ${builderNotes.trim()}` : builderNotes.trim();
+        }
+
+        const extrasIds = selectedExtras.map(e => e.id);
+
+        // Add to global cart instead of kiosk store
+        addItemToGlobalCart(
+            { 
+                ...store.builderProduct, 
+                price: (basePrice + (extrasTotal / builderQty)).toString() // Spread extras cost across units or just add it
+            }, 
+            builderQty, 
+            extrasIds, 
+            description
+        );
+
         store.closeBuilder();
         setBuilderQty(1);
         setBuilderNotes('');
+        setSelectedExtras([]);
+        
+        // Navigate to the cart as requested
+        router.push('/cart');
+    };
+
+    const toggleExtra = (extra: any) => {
+        store.touchInteraction();
+        if (selectedExtras.find(e => e.id === extra.id)) {
+            setSelectedExtras(selectedExtras.filter(e => e.id !== extra.id));
+        } else {
+            setSelectedExtras([...selectedExtras, extra]);
+        }
     };
 
     // Kiosk Identity is just a local name for the order
@@ -545,14 +594,37 @@ export default function KioskScreen() {
                                         </Pressable>
                                     </View>
                                 </View>
+
+                                {/* EXTRAS */}
+                                <Text style={s.sectionLabel}>Aderezos y Extras</Text>
+                                <View style={s.extrasGrid}>
+                                    {EXTRAS.map(extra => {
+                                        const isSelected = !!selectedExtras.find(e => e.id === extra.id);
+                                        return (
+                                            <Pressable
+                                                key={extra.id}
+                                                style={[s.extraBtn, isSelected && s.extraBtnActive]}
+                                                onPress={() => toggleExtra(extra)}
+                                            >
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[s.extraName, isSelected && s.extraTextActive]}>{extra.name}</Text>
+                                                    {extra.price > 0 && (
+                                                        <Text style={[s.extraPrice, isSelected && s.extraTextActive]}>+ {formatPrice(extra.price)}</Text>
+                                                    )}
+                                                </View>
+                                                {isSelected && <Text style={s.checkIconSmall}>✓</Text>}
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
                             </ScrollView>
 
                             {/* Add Button */}
                             <View style={s.builderFooter}>
                                 <Pressable style={s.addCartBtn} onPress={handleAddToCart}>
                                     <Text style={s.addCartBtnText}>
-                                        Agregar • {formatPrice(
-                                            (parseFloat(store.builderProduct.price || store.builderProduct.precio_venta || '0')) * builderQty
+                                        Agregar al Carrito • {formatPrice(
+                                            ((parseFloat(store.builderProduct.price || store.builderProduct.precio_venta || '0')) * builderQty) + selectedExtras.reduce((acc, curr) => acc + curr.price, 0)
                                         )}
                                     </Text>
                                 </Pressable>
@@ -831,7 +903,7 @@ const s = StyleSheet.create({
     builderBody: { flex: 1, padding: 24 },
     builderName: { fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 8 },
     builderPrice: { fontSize: 24, fontWeight: '800', color: '#FF9100', marginBottom: 24 },
-    sectionLabel: { color: '#888', fontWeight: '700', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
+    sectionLabel: { color: '#888', fontWeight: '700', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16, marginTop: 24 },
     notesInput: { backgroundColor: '#1E1E1E', color: '#fff', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#333', fontSize: 16, minHeight: 80, textAlignVertical: 'top', marginBottom: 24 },
 
     // Quantity
@@ -844,8 +916,17 @@ const s = StyleSheet.create({
 
     // Builder Footer
     builderFooter: { padding: 20, borderTopWidth: 1, borderTopColor: '#222' },
-    addCartBtn: { backgroundColor: '#fff', padding: 18, borderRadius: 18, alignItems: 'center' },
-    addCartBtnText: { color: '#000', fontWeight: '800', fontSize: 18 },
+    addCartBtn: { backgroundColor: '#FF9100', paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
+    addCartBtnText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+
+    // Extras
+    extrasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 20 },
+    extraBtn: { width: '48%', backgroundColor: '#222', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#333', flexDirection: 'row', alignItems: 'center' },
+    extraBtnActive: { backgroundColor: 'rgba(255,145,0,0.2)', borderColor: '#FF9100' },
+    extraName: { color: '#fff', fontSize: 13, fontWeight: '600' },
+    extraPrice: { color: '#888', fontSize: 11, marginTop: 2 },
+    extraTextActive: { color: '#FF9100' },
+    checkIconSmall: { color: '#FF9100', fontSize: 16, fontWeight: 'bold' },
 
     // Checkout
     checkoutHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingTop: 20 },

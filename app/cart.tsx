@@ -26,6 +26,8 @@ function CartItemCard({ item }: { item: CartItem }) {
         ? `${item.quantity} ${unit}`
         : `${item.quantity}`;
 
+    const extrasDescription = item.description || '';
+
     return (
         <View style={styles.itemCard}>
             <View style={styles.itemImage}>
@@ -47,25 +49,28 @@ function CartItemCard({ item }: { item: CartItem }) {
                 <Text style={styles.itemPrice}>
                     {formatPrice(price)}{isByWeight ? ` /${unit}` : ' c/u'}
                 </Text>
+                {extrasDescription ? (
+                    <Text style={styles.itemExtras}>{extrasDescription}</Text>
+                ) : null}
 
                 <View style={styles.quantityRow}>
                     <Pressable
                         style={styles.qtyBtn}
-                        onPress={() => updateQuantity(item.product.id_producto, item.quantity - step)}
+                        onPress={() => updateQuantity(item.cartItemId, item.quantity - step)}
                     >
                         <Text style={styles.qtyBtnText}>−</Text>
                     </Pressable>
                     <Text style={styles.qtyText}>{qtyDisplay}</Text>
                     <Pressable
                         style={styles.qtyBtn}
-                        onPress={() => updateQuantity(item.product.id_producto, item.quantity + step)}
+                        onPress={() => updateQuantity(item.cartItemId, item.quantity + step)}
                     >
                         <Text style={styles.qtyBtnText}>+</Text>
                     </Pressable>
 
                     <Pressable
                         style={styles.removeBtn}
-                        onPress={() => removeItem(item.product.id_producto)}
+                        onPress={() => removeItem(item.cartItemId)}
                     >
                         <Text style={styles.removeBtnText}>🗑</Text>
                     </Pressable>
@@ -124,7 +129,7 @@ export default function CartScreen() {
                 <View style={styles.container}>
                     <FlatList
                         data={items}
-                        keyExtractor={(item) => item.product.id_producto.toString()}
+                        keyExtractor={(item) => item.cartItemId}
                         renderItem={({ item }) => <CartItemCard item={item} />}
                         contentContainerStyle={styles.list}
                         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -205,6 +210,12 @@ const styles = StyleSheet.create({
     itemPrice: {
         fontSize: 12,
         color: '#888',
+    },
+    itemExtras: {
+        fontSize: 12,
+        color: '#666',
+        fontStyle: 'italic',
+        marginTop: 2,
     },
     quantityRow: {
         flexDirection: 'row',

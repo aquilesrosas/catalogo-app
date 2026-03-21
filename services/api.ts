@@ -123,6 +123,7 @@ export interface CreateOrderPayload {
     payment_amount_cash?: number;
     payment_amount_transfer?: number;
     notes?: string;
+    scheduled_at?: string; // ISO string format
 }
 
 export interface OrderResponse {
@@ -146,6 +147,8 @@ export interface OrderResponse {
             unit_snapshot: string;
         }>;
         created_at: string;
+        scheduled_at?: string;
+        is_scheduled?: boolean;
     };
 }
 
@@ -247,6 +250,16 @@ export async function getUserOrders(phone: string): Promise<OrderResponse['order
 
 export async function getPaymentMethods(): Promise<Array<{ id: string, name: string }>> {
     const { data } = await api.get('payment-methods/');
+    return data;
+}
+
+export interface AttendanceSlot {
+    time: string;
+    available: boolean;
+}
+
+export async function getAvailableSlots(date: string): Promise<AttendanceSlot[]> {
+    const { data } = await api.get('available-slots/', { params: { date } });
     return data;
 }
 

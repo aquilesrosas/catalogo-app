@@ -25,20 +25,27 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
     if (!searchText.trim()) return;
     setSearching(true);
     try {
-      // Bias search toward user's current area
-      const viewbox = initialLocation
-        ? `&viewbox=${initialLocation.lng - 0.5},${initialLocation.lat + 0.5},${initialLocation.lng + 0.5},${initialLocation.lat - 0.5}&bounded=1`
-        : '';
-      // Use structured query: street param keeps the number attached
       const query = searchText.trim();
-      const url = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(query)}&city=Salta&state=Salta&country=Argentina&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
-      const res = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+      const headers = { 
+        'Accept-Language': 'es',
+        'User-Agent': 'MinisuperCatalogo/1.0 (akilerosas@gmail.com)'
+      };
+
+      // Bias search toward user's area
+      const viewbox = initialLocation
+        ? `&viewbox=${initialLocation.lng - 0.2},${initialLocation.lat + 0.2},${initialLocation.lng + 0.2},${initialLocation.lat - 0.2}&bounded=1`
+        : '';
+
+      // Try free text search first (usually better for street numbers)
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&limit=5&addressdetails=1${viewbox}`;
+      
+      const res = await fetch(url, { headers });
       let results = await res.json();
       
-      // If structured search didn't find results, fall back to free text
+      // Fallback to structured search if needed
       if (!results || results.length === 0) {
-        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
-        const fallbackRes = await fetch(fallbackUrl, { headers: { 'Accept-Language': 'es' } });
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(query)}&city=Salta&state=Salta&country=Argentina&limit=5&addressdetails=1${viewbox}`;
+        const fallbackRes = await fetch(fallbackUrl, { headers });
         results = await fallbackRes.json();
       }
 
@@ -46,8 +53,8 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
       if (!results || results.length === 0) {
         const queryWithoutNumbers = query.replace(/[0-9]/g, '').trim();
         if (queryWithoutNumbers) {
-            const streetFallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(queryWithoutNumbers)}&city=Salta&state=Salta&country=Argentina&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
-            const streetFallbackRes = await fetch(streetFallbackUrl, { headers: { 'Accept-Language': 'es' } });
+            const streetFallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryWithoutNumbers + ', Salta, Argentina')}&limit=5&addressdetails=1${viewbox}`;
+            const streetFallbackRes = await fetch(streetFallbackUrl, { headers });
             results = await streetFallbackRes.json();
         }
       }

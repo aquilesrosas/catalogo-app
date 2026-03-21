@@ -15,7 +15,7 @@ import { useRouter, Stack } from 'expo-router';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
 import { formatPrice } from '@/utils/format';
-import { createOrder } from '@/services/api';
+import { createOrder, getAvailableSlots, AttendanceSlot } from '@/services/api';
 import * as Location from 'expo-location';
 import LocationPickerMap from '@/components/LocationPickerMap';
 
@@ -37,6 +37,39 @@ export default function CheckoutScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationLoading, setLocationLoading] = useState(false);
+
+    // ─── Scheduling State ───
+    const [isScheduled, setIsScheduled] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<Date>(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1); // Default to tomorrow
+        return d;
+    });
+    const [slots, setSlots] = useState<AttendanceSlot[]>([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
+    const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+
+    // Fetch slots when date changes or isScheduled toggles
+    useEffect(() => {
+        if (!isScheduled) return;
+        const fetchSlots = async () => {
+            setLoadingSlots(true);
+            try {
+                const dateStr = selectedDate.toISOString().split('T')[0];
+                const data = await getAvailableSlots(dateStr);
+                setSlots(data);
+                if (data.length > 0 && !data.find(s => s.time === selectedSlot)?.available) {
+                    setSelectedSlot(null);
+                }
+            } catch (error) {
+                console.error("Error fetching slots:", error);
+                setSlots([]);
+            } finally {
+                setLoadingSlots(false);
+            }
+        };
+        fetchSlots();
+    }, [isScheduled, selectedDate]);
 
     // Get current location for the map
     useEffect(() => {
@@ -113,6 +146,11 @@ export default function CheckoutScreen() {
             }
         }
 
+        if (isScheduled && !selectedSlot) {
+            showAlert('Error', 'Seleccioná un horario para tu pedido');
+            return;
+        }
+
         Keyboard.dismiss();
         setSubmitting(true);
         console.log('[Checkout] Validation passed, submitting...');
@@ -121,6 +159,8 @@ export default function CheckoutScreen() {
             const orderItems = items.map((i) => ({
                 product_id: i.product.id_producto,
                 quantity: i.quantity,
+                extras_ids: i.extras_ids,
+                notes: i.description || undefined,
             }));
 
             let payload: any = {
@@ -135,6 +175,14 @@ export default function CheckoutScreen() {
                 payment_method: paymentMethod,
                 notes: notes.trim(),
             };
+
+            if (isScheduled && selectedSlot) {
+                const dateStr = selectedDate.toISOString().split('T')[0];
+                payload.scheduled_at = `${dateStr}T${selectedSlot}:00`;
+                payload.order_type = 'scheduled';
+            } else {
+                payload.order_type = 'instant';
+            }
 
             if (paymentMethod === 'MIXTO') {
                 const cash = parseFloat(cashAmount);
@@ -207,6 +255,9 @@ export default function CheckoutScreen() {
                                     <Text style={styles.summaryQty}>
                                         {qtyLabel} × {formatPrice(price)}
                                     </Text>
+                                    {item.description ? (
+                                        <Text style={styles.summaryExtras}>{item.description}</Text>
+                                    ) : null}
                                 </View>
                                 <Text style={styles.summarySubtotal}>
                                     {formatPrice(price * item.quantity)}
@@ -326,60 +377,95 @@ export default function CheckoutScreen() {
                     )}
                 </View>
 
-                {/* Payment Method */}
+                {/* Scheduling Section */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>💳 Forma de pago</Text>
+                    <Text style={styles.sectionTitle}>🕒 ¿Cuándo querés tu pedido?</Text>
                     <View style={styles.paymentRow}>
                         <Pressable
                             style={[
                                 styles.paymentOption,
-                                paymentMethod === 'EFECTIVO' && styles.paymentActive,
+                                !isScheduled && styles.paymentActive,
                             ]}
-                            onPress={() => setPaymentMethod('EFECTIVO')}
+                            onPress={() => setIsScheduled(false)}
                         >
-                            <Text style={styles.paymentIcon}>💵</Text>
-                            <Text
-                                style={[
-                                    styles.paymentText,
-                                    paymentMethod === 'EFECTIVO' && styles.paymentTextActive,
-                                ]}
-                            >
-                                Efectivo
+                            <Text style={styles.paymentIcon}>⚡</Text>
+                            <Text style={[styles.paymentText, !isScheduled && styles.paymentTextActive]}>
+                                Lo antes posible
                             </Text>
                         </Pressable>
                         <Pressable
                             style={[
                                 styles.paymentOption,
-                                paymentMethod === 'MIXTO' && styles.paymentActive,
+                                isScheduled && styles.paymentActive,
                             ]}
-                            onPress={() => setPaymentMethod('MIXTO')}
+                            onPress={() => setIsScheduled(true)}
                         >
-                            <Text style={styles.paymentIcon}>⚖️</Text>
-                            <Text
-                                style={[
-                                    styles.paymentText,
-                                    paymentMethod === 'MIXTO' && styles.paymentTextActive,
-                                ]}
-                            >
-                                Mixto
+                            <Text style={styles.paymentIcon}>📅</Text>
+                            <Text style={[styles.paymentText, isScheduled && styles.paymentTextActive]}>
+                                Programar
                             </Text>
                         </Pressable>
                     </View>
 
-                    {paymentMethod === 'MIXTO' && (
-                        <View style={styles.mixtoArea}>
-                            <Text style={styles.inputLabel}>Monto en efectivo (💵)</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={cashAmount}
-                                onChangeText={setCashAmount}
-                                placeholder="Ej: 500"
-                                keyboardType="numeric"
-                            />
-                            {cashAmount !== '' && !isNaN(parseFloat(cashAmount)) && (
-                                <Text style={styles.mixtoDetail}>
-                                    📱 Restante por transferencia: {formatPrice(total - parseFloat(cashAmount))}
-                                </Text>
+                    {isScheduled && (
+                        <View style={styles.schedulingArea}>
+                            <Text style={styles.innerSectionTitle}>Seleccioná el día</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daysScroll}>
+                                {[1, 2, 3, 4, 5, 6, 7].map((offset) => {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() + offset);
+                                    const isActive = d.toDateString() === selectedDate.toDateString();
+                                    const dayName = d.toLocaleDateString('es-AR', { weekday: 'short' });
+                                    const dayNum = d.getDate();
+                                    return (
+                                        <Pressable
+                                            key={offset}
+                                            style={[styles.dayCard, isActive && styles.dayCardActive]}
+                                            onPress={() => setSelectedDate(d)}
+                                        >
+                                            <Text style={[styles.dayName, isActive && styles.dayCardTextActive]}>{dayName}</Text>
+                                            <Text style={[styles.dayNum, isActive && styles.dayCardTextActive]}>{dayNum}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </ScrollView>
+
+                            <Text style={styles.innerSectionTitle}>Horarios disponibles</Text>
+                            {loadingSlots ? (
+                                <ActivityIndicator color="#1B5E20" style={{ marginVertical: 20 }} />
+                            ) : slots.length > 0 ? (
+                                <View style={styles.slotsGrid}>
+                                    {slots.map((slot) => (
+                                        <Pressable
+                                            key={slot.time}
+                                            disabled={!slot.available}
+                                            style={[
+                                                styles.slotBtn,
+                                                selectedSlot === slot.time && styles.slotBtnActive,
+                                                !slot.available && styles.slotBtnDisabled,
+                                            ]}
+                                            onPress={() => setSelectedSlot(slot.time)}
+                                        >
+                                            <Text style={[
+                                                styles.slotText,
+                                                selectedSlot === slot.time && styles.slotTextActive,
+                                                !slot.available && styles.slotTextDisabled
+                                            ]}>
+                                                {slot.time}
+                                            </Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            ) : (
+                                <Text style={styles.noSlotsText}>No hay horarios disponibles para este día.</Text>
+                            )}
+
+                            {selectedSlot && (
+                                <View style={styles.selectionSummary}>
+                                    <Text style={styles.selectionSummaryText}>
+                                        Tu pedido será preparado el {selectedDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })} a las {selectedSlot} hs
+                                    </Text>
+                                </View>
                             )}
                         </View>
                     )}
@@ -464,6 +550,12 @@ const styles = StyleSheet.create({
     summaryQty: {
         fontSize: 12,
         color: '#888',
+        marginTop: 2,
+    },
+    summaryExtras: {
+        fontSize: 12,
+        color: '#666',
+        fontStyle: 'italic',
         marginTop: 2,
     },
     summarySubtotal: {
@@ -617,5 +709,103 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#f5f5f5'
+    },
+    // ─── Scheduling Styles ───
+    schedulingArea: {
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    innerSectionTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#666',
+        marginBottom: 10,
+    },
+    daysScroll: {
+        marginBottom: 20,
+    },
+    dayCard: {
+        width: 60,
+        height: 70,
+        borderRadius: 12,
+        backgroundColor: '#F5F5F5',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+    },
+    dayCardActive: {
+        backgroundColor: '#1B5E20',
+        borderColor: '#1B5E20',
+    },
+    dayName: {
+        fontSize: 12,
+        color: '#666',
+        textTransform: 'capitalize',
+    },
+    dayNum: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#333',
+        marginTop: 2,
+    },
+    dayCardTextActive: {
+        color: '#fff',
+    },
+    slotsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    slotBtn: {
+        width: '23%',
+        paddingVertical: 10,
+        borderRadius: 8,
+        backgroundColor: '#F5F5F5',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+    },
+    slotBtnActive: {
+        backgroundColor: '#E8F5E9',
+        borderColor: '#2E7D32',
+    },
+    slotBtnDisabled: {
+        opacity: 0.4,
+        backgroundColor: '#eee',
+    },
+    slotText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#555',
+    },
+    slotTextActive: {
+        color: '#2E7D32',
+    },
+    slotTextDisabled: {
+        color: '#aaa',
+    },
+    noSlotsText: {
+        textAlign: 'center',
+        color: '#888',
+        marginVertical: 20,
+        fontStyle: 'italic',
+    },
+    selectionSummary: {
+        marginTop: 20,
+        backgroundColor: '#FFF9C4',
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#FFF176',
+    },
+    selectionSummaryText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#7F5F01',
+        lineHeight: 18,
     }
 });
