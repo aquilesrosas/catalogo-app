@@ -17,6 +17,7 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
 }) => {
   const webviewRef = useRef<WebView>(null);
   const lastSearchTime = useRef(0);
+  const lastSearchedNumber = useRef<string | null>(null);
   const [searchText, setSearchText] = React.useState('');
   const [searching, setSearching] = React.useState(false);
   const [resolvedAddress, setResolvedAddress] = React.useState('');
@@ -67,12 +68,29 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
         // Extract number from user's search text to preserve it
         const matchNumber = searchText.match(/\b\d+\b/);
         const userNumber = matchNumber ? matchNumber[0] : null;
+        lastSearchedNumber.current = userNumber;
         
-        let finalAddress = display_name;
+        // Build a clean, short address: "Street Number, Neighbourhood, City"
+        let finalAddress = '';
+        if (address) {
+            const road = address.road || address.pedestrian || address.street || '';
+            const houseNum = address.house_number || userNumber || '';
+            const suburb = address.suburb || address.neighbourhood || '';
+            const city = address.city || address.town || address.village || '';
+            const state = address.state || '';
+            const postcode = address.postcode || '';
+            
+            const streetPart = houseNum ? `${road} ${houseNum}` : road;
+            const parts = [streetPart, suburb, city, state, postcode].filter(Boolean);
+            finalAddress = parts.join(', ');
+        }
         
-        // OpenStreetMap often removes the exact house number if it doesn't have it mapped.
-        // If the user typed a number and it's missing from the OSM formatted address, 
-        // we force it back into the first component (the street name).
+        // Fallback to display_name if we couldn't build a better one
+        if (!finalAddress) {
+            finalAddress = display_name;
+        }
+        
+        // If user typed a number and it's STILL missing, force it in
         if (userNumber && !finalAddress.includes(userNumber)) {
             const parts = finalAddress.split(', ');
             parts[0] = `${parts[0]} ${userNumber}`;
@@ -228,10 +246,17 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
                 onLocationSelect(data.lat, data.lng);
               }
               if (data.type === 'address' && data.address) {
-                // Don't let reverse geocode override a recent search result (3s cooldown)
-                if (Date.now() - lastSearchTime.current < 3000) return;
-                setResolvedAddress(data.address);
-                onAddressResolved?.(data.address);
+                // Don't let reverse geocode override a recent search result (10s cooldown)
+                if (Date.now() - lastSearchTime.current < 10000) return;
+                // Re-inject the user's house number if the reverse geocode lost it
+                let addr = data.address;
+                if (lastSearchedNumber.current && !addr.includes(lastSearchedNumber.current)) {
+                    const parts = addr.split(', ');
+                    parts[0] = `${parts[0]} ${lastSearchedNumber.current}`;
+                    addr = parts.join(', ');
+                }
+                setResolvedAddress(addr);
+                onAddressResolved?.(addr);
               }
             } catch (e) { }
           }}

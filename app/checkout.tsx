@@ -471,6 +471,68 @@ export default function CheckoutScreen() {
                     )}
                 </View>
 
+                {/* Payment Method Section */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>💳 Medio de pago</Text>
+                    <View style={styles.paymentRow}>
+                        <Pressable
+                            style={[
+                                styles.paymentOption,
+                                paymentMethod === 'EFECTIVO' && styles.paymentActive,
+                            ]}
+                            onPress={() => setPaymentMethod('EFECTIVO')}
+                        >
+                            <Text style={styles.paymentIcon}>💵</Text>
+                            <Text style={[styles.paymentText, paymentMethod === 'EFECTIVO' && styles.paymentTextActive]}>
+                                Efectivo
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            style={[
+                                styles.paymentOption,
+                                paymentMethod === 'TRANSFERENCIA' && styles.paymentActive,
+                            ]}
+                            onPress={() => setPaymentMethod('TRANSFERENCIA')}
+                        >
+                            <Text style={styles.paymentIcon}>📱</Text>
+                            <Text style={[styles.paymentText, paymentMethod === 'TRANSFERENCIA' && styles.paymentTextActive]}>
+                                Transferencia
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            style={[
+                                styles.paymentOption,
+                                paymentMethod === 'MIXTO' && styles.paymentActive,
+                            ]}
+                            onPress={() => setPaymentMethod('MIXTO')}
+                        >
+                            <Text style={styles.paymentIcon}>🔄</Text>
+                            <Text style={[styles.paymentText, paymentMethod === 'MIXTO' && styles.paymentTextActive]}>
+                                Mixto
+                            </Text>
+                        </Pressable>
+                    </View>
+
+                    {paymentMethod === 'MIXTO' && (
+                        <View style={styles.mixtoArea}>
+                            <Text style={styles.inputLabel}>Monto a pagar en Efectivo</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={cashAmount}
+                                onChangeText={setCashAmount}
+                                placeholder={`Ej: ${(total / 2).toFixed(2)}`}
+                                placeholderTextColor="#aaa"
+                                keyboardType="numeric"
+                            />
+                            {Boolean(cashAmount) && !isNaN(parseFloat(cashAmount)) && (
+                                <Text style={styles.mixtoDetail}>
+                                    Se cobrará {formatPrice(total - parseFloat(cashAmount))} por transferencia.
+                                </Text>
+                            )}
+                        </View>
+                    )}
+                </View>
+
                 {/* Notes */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>📝 Notas (opcional)</Text>
