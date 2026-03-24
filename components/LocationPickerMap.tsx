@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { StyleSheet, View, TextInput, Pressable, Text, ActivityIndicator, Alert, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
+import * as Location from 'expo-location';
 
 interface LocationPickerProps {
   initialLocation?: { lat: number; lng: number };
@@ -20,7 +21,38 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
   const lastSearchedNumber = useRef<string | null>(null);
   const [searchText, setSearchText] = React.useState('');
   const [searching, setSearching] = React.useState(false);
+  const [locating, setLocating] = React.useState(false);
   const [resolvedAddress, setResolvedAddress] = React.useState('');
+
+  const handleLocateMe = async () => {
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Permití el acceso a la ubicación para usar esta función.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const lat = location.coords.latitude;
+      const lng = location.coords.longitude;
+
+      // Move the map without setting isProgrammaticMove so it triggers reverse geocoding
+      webviewRef.current?.injectJavaScript(`
+        map.setView([${lat}, ${lng}], 17, { animate: false });
+        true;
+      `);
+      onLocationSelect(lat, lng);
+    } catch (error) {
+      console.error('Location error:', error);
+      Alert.alert('Error', 'No pudimos obtener tu ubicación actual.');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const handleSearch = async () => {
     if (!searchText.trim()) return;
@@ -221,6 +253,13 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={styles.searchBtnText}>🔍</Text>
+          )}
+        </Pressable>
+        <Pressable style={[styles.searchBtn, { backgroundColor: '#2196F3' }]} onPress={handleLocateMe} disabled={locating}>
+          {locating ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.searchBtnText}>📍</Text>
           )}
         </Pressable>
       </View>
