@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { StyleSheet, View, TextInput, Pressable, Text, ActivityIndicator, Alert, Platform } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { StyleSheet, View, TextInput, Pressable, Text, ActivityIndicator, Alert, Platform, ScrollView } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 
@@ -8,6 +8,13 @@ interface LocationPickerProps {
   onLocationSelect: (lat: number, lng: number) => void;
   onAddressResolved?: (address: string) => void;
   showCrosshair?: boolean;
+}
+
+interface PhotonSuggestion {
+  lat: number;
+  lng: number;
+  label: string;
+  houseNumber?: string;
 }
 
 const LocationPickerMap: React.FC<LocationPickerProps> = ({
@@ -19,13 +26,102 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
   const webviewRef = useRef<WebView>(null);
   const lastSearchTime = useRef(0);
   const lastSearchedNumber = useRef<string | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchText, setSearchText] = React.useState('');
   const [searching, setSearching] = React.useState(false);
   const [locating, setLocating] = React.useState(false);
   const [resolvedAddress, setResolvedAddress] = React.useState('');
+  const [suggestions, setSuggestions] = React.useState<PhotonSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+
+  // Build a readable label from Photon feature properties
+  const buildLabel = (props: any, userNumber?: string | null): string => {
+    const street = props.street || props.name || '';
+    const houseNum = props.housenumber || userNumber || '';
+    const district = props.district || props.locality || '';
+    const city = props.city || props.town || props.village || '';
+    const state = props.state || '';
+    const postcode = props.postcode || '';
+
+    const streetPart = houseNum ? `${street} ${houseNum}` : street;
+    const parts = [streetPart, district, city, state, postcode].filter(Boolean);
+    return parts.join(', ');
+  };
+
+  // Fetch autocomplete suggestions from Photon API
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (query.trim().length < 3) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      // Extract house number from query to pass to Photon
+      const matchNumber = query.match(/\b\d+\b/);
+      const userNumber = matchNumber ? matchNumber[0] : null;
+
+      // Photon API with location bias
+      const latBias = initialLocation?.lat || -24.7821;
+      const lngBias = initialLocation?.lng || -65.4232;
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query + ', Salta')}&limit=5&lang=es&lat=${latBias}&lon=${lngBias}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data && data.features && data.features.length > 0) {
+        const items: PhotonSuggestion[] = data.features.map((f: any) => {
+          const props = f.properties || {};
+          const coords = f.geometry?.coordinates || [lngBias, latBias];
+          return {
+            lat: coords[1],
+            lng: coords[0],
+            label: buildLabel(props, userNumber),
+            houseNumber: props.housenumber || userNumber || undefined,
+          };
+        });
+        setSuggestions(items);
+        setShowSuggestions(true);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (e) {
+      console.error('Photon autocomplete error:', e);
+    }
+  }, [initialLocation]);
+
+  // Debounced text change handler
+  const handleTextChange = (text: string) => {
+    setSearchText(text);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      fetchSuggestions(text);
+    }, 400);
+  };
+
+  // When user selects a suggestion
+  const selectSuggestion = (suggestion: PhotonSuggestion) => {
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setSearchText('');
+    lastSearchedNumber.current = suggestion.houseNumber || null;
+
+    // Move map
+    webviewRef.current?.injectJavaScript(`
+      isProgrammaticMove = true;
+      map.setView([${suggestion.lat}, ${suggestion.lng}], 17, { animate: false });
+      true;
+    `);
+    onLocationSelect(suggestion.lat, suggestion.lng);
+    setResolvedAddress(suggestion.label);
+    onAddressResolved?.(suggestion.label);
+    lastSearchTime.current = Date.now();
+  };
 
   const handleLocateMe = async () => {
     setLocating(true);
+    setShowSuggestions(false);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -40,7 +136,6 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
       const lat = location.coords.latitude;
       const lng = location.coords.longitude;
 
-      // Move the map without setting isProgrammaticMove so it triggers reverse geocoding
       webviewRef.current?.injectJavaScript(`
         map.setView([${lat}, ${lng}], 17, { animate: false });
         true;
@@ -54,93 +149,89 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
     }
   };
 
+  // Fallback: manual search button (uses Photon too)
   const handleSearch = async () => {
     if (!searchText.trim()) return;
     setSearching(true);
+    setShowSuggestions(false);
     try {
       const query = searchText.trim();
-      const headers = { 
-        'Accept-Language': 'es',
-        'User-Agent': 'MinisuperCatalogo/1.0 (akilerosas@gmail.com)'
-      };
+      const matchNumber = query.match(/\b\d+\b/);
+      const userNumber = matchNumber ? matchNumber[0] : null;
+      lastSearchedNumber.current = userNumber;
 
-      // Bias search toward user's area
-      const viewbox = initialLocation
-        ? `&viewbox=${initialLocation.lng - 0.2},${initialLocation.lat + 0.2},${initialLocation.lng + 0.2},${initialLocation.lat - 0.2}&bounded=1`
-        : '';
+      const latBias = initialLocation?.lat || -24.7821;
+      const lngBias = initialLocation?.lng || -65.4232;
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query + ', Salta, Argentina')}&limit=5&lang=es&lat=${latBias}&lon=${lngBias}`;
 
-      // Try free text search first (usually better for street numbers)
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&limit=5&addressdetails=1${viewbox}`;
-      
-      const res = await fetch(url, { headers });
-      let results = await res.json();
-      
-      // Fallback to structured search if needed
-      if (!results || results.length === 0) {
-        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(query)}&city=Salta&state=Salta&country=Argentina&limit=5&addressdetails=1${viewbox}`;
-        const fallbackRes = await fetch(fallbackUrl, { headers });
-        results = await fallbackRes.json();
-      }
+      const res = await fetch(url);
+      const data = await res.json();
 
-      // If still no results, strip numbers and search for just the street
-      if (!results || results.length === 0) {
-        const queryWithoutNumbers = query.replace(/[0-9]/g, '').trim();
-        if (queryWithoutNumbers) {
-            const streetFallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryWithoutNumbers + ', Salta, Argentina')}&limit=5&addressdetails=1${viewbox}`;
-            const streetFallbackRes = await fetch(streetFallbackUrl, { headers });
-            results = await streetFallbackRes.json();
-        }
-      }
-      
-      if (results && results.length > 0) {
-        const { lat, lon, display_name, address } = results[0];
-        const newLat = parseFloat(lat);
-        const newLng = parseFloat(lon);
-        
-        // Extract number from user's search text to preserve it
-        const matchNumber = searchText.match(/\b\d+\b/);
-        const userNumber = matchNumber ? matchNumber[0] : null;
-        lastSearchedNumber.current = userNumber;
-        
-        // Build a clean, short address: "Street Number, Neighbourhood, City"
-        let finalAddress = '';
-        if (address) {
-            const road = address.road || address.pedestrian || address.street || '';
-            const houseNum = address.house_number || userNumber || '';
-            const suburb = address.suburb || address.neighbourhood || '';
-            const city = address.city || address.town || address.village || '';
-            const state = address.state || '';
-            const postcode = address.postcode || '';
-            
-            const streetPart = houseNum ? `${road} ${houseNum}` : road;
-            const parts = [streetPart, suburb, city, state, postcode].filter(Boolean);
-            finalAddress = parts.join(', ');
-        }
-        
-        // Fallback to display_name if we couldn't build a better one
-        if (!finalAddress) {
-            finalAddress = display_name;
-        }
-        
-        // If user typed a number and it's STILL missing, force it in
+      if (data && data.features && data.features.length > 0) {
+        const f = data.features[0];
+        const props = f.properties || {};
+        const coords = f.geometry?.coordinates || [lngBias, latBias];
+        const newLat = coords[1];
+        const newLng = coords[0];
+        let finalAddress = buildLabel(props, userNumber);
+
+        // Force number if still missing
         if (userNumber && !finalAddress.includes(userNumber)) {
-            const parts = finalAddress.split(', ');
-            parts[0] = `${parts[0]} ${userNumber}`;
-            finalAddress = parts.join(', ');
+          const parts = finalAddress.split(', ');
+          parts[0] = `${parts[0]} ${userNumber}`;
+          finalAddress = parts.join(', ');
         }
-        
-        // Move the webview map
+
         webviewRef.current?.injectJavaScript(`
-                    isProgrammaticMove = true;
-                    map.setView([${newLat}, ${newLng}], 17, { animate: false });
-                    true;
-                `);
+          isProgrammaticMove = true;
+          map.setView([${newLat}, ${newLng}], 17, { animate: false });
+          true;
+        `);
         onLocationSelect(newLat, newLng);
         setResolvedAddress(finalAddress);
         onAddressResolved?.(finalAddress);
         lastSearchTime.current = Date.now();
       } else {
-        Alert.alert('No encontrado', 'No se encontró la dirección. Probá con más detalle.');
+        // Fallback: try Nominatim
+        const headers = { 'Accept-Language': 'es', 'User-Agent': 'MinisuperCatalogo/1.0 (akilerosas@gmail.com)' };
+        const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&limit=1&addressdetails=1`;
+        const nomRes = await fetch(nomUrl, { headers });
+        const nomResults = await nomRes.json();
+        if (nomResults && nomResults.length > 0) {
+          const { lat, lon, address } = nomResults[0];
+          const newLat = parseFloat(lat);
+          const newLng = parseFloat(lon);
+          let finalAddress = buildLabel({
+            street: address?.road || '',
+            housenumber: address?.house_number || '',
+            district: address?.suburb || '',
+            city: address?.city || address?.town || '',
+            state: address?.state || '',
+            postcode: address?.postcode || '',
+          }, userNumber);
+
+          if (userNumber && !finalAddress.includes(userNumber)) {
+            const parts = finalAddress.split(', ');
+            parts[0] = `${parts[0]} ${userNumber}`;
+            finalAddress = parts.join(', ');
+          }
+
+          webviewRef.current?.injectJavaScript(`
+            isProgrammaticMove = true;
+            map.setView([${newLat}, ${newLng}], 17, { animate: false });
+            true;
+          `);
+          onLocationSelect(newLat, newLng);
+          setResolvedAddress(finalAddress);
+          onAddressResolved?.(finalAddress);
+          lastSearchTime.current = Date.now();
+        } else {
+          if (Platform.OS === 'web') {
+            window.alert('No se encontró la dirección. Probá con más detalle.');
+          } else {
+            Alert.alert('No encontrado', 'No se encontró la dirección. Probá con más detalle.');
+          }
+        }
       }
     } catch (e) {
       console.error('Geocoding error:', e);
@@ -242,11 +333,12 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
         <TextInput
           style={styles.searchInput}
           value={searchText}
-          onChangeText={setSearchText}
+          onChangeText={handleTextChange}
           placeholder="Buscá tu dirección..."
           placeholderTextColor="#999"
           onSubmitEditing={handleSearch}
           returnKeyType="search"
+          onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
         />
         <Pressable style={styles.searchBtn} onPress={handleSearch} disabled={searching}>
           {searching ? (
@@ -264,8 +356,30 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
         </Pressable>
       </View>
 
+      {/* Autocomplete suggestions dropdown */}
+      {showSuggestions && suggestions.length > 0 && (
+        <View style={styles.suggestionsContainer}>
+          <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={{ maxHeight: 180 }}>
+            {suggestions.map((s, i) => (
+              <Pressable
+                key={`${s.lat}-${s.lng}-${i}`}
+                style={({ pressed }) => [
+                  styles.suggestionItem,
+                  pressed && { backgroundColor: '#E8F5E9' },
+                  i < suggestions.length - 1 && styles.suggestionBorder,
+                ]}
+                onPress={() => selectSuggestion(s)}
+              >
+                <Text style={styles.suggestionPin}>📍</Text>
+                <Text style={styles.suggestionText} numberOfLines={2}>{s.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* Resolved address display */}
-      {resolvedAddress ? (
+      {resolvedAddress && !showSuggestions ? (
         <View style={styles.addressBar}>
           <Text style={styles.addressText} numberOfLines={2}>📍 {resolvedAddress}</Text>
         </View>
@@ -285,9 +399,7 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
                 onLocationSelect(data.lat, data.lng);
               }
               if (data.type === 'address' && data.address) {
-                // Don't let reverse geocode override a recent search result (10s cooldown)
                 if (Date.now() - lastSearchTime.current < 10000) return;
-                // Re-inject the user's house number if the reverse geocode lost it
                 let addr = data.address;
                 if (lastSearchedNumber.current && !addr.includes(lastSearchedNumber.current)) {
                     const parts = addr.split(', ');
@@ -312,7 +424,7 @@ const styles = StyleSheet.create({
   searchRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 0,
   },
   searchInput: {
     flex: 1,
@@ -334,12 +446,42 @@ const styles = StyleSheet.create({
   searchBtnText: {
     fontSize: 18,
   },
+  suggestionsContainer: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+    borderRadius: 10,
+    marginTop: 4,
+    marginBottom: 4,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' ? { zIndex: 100 } : { elevation: 5 }),
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  suggestionBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  suggestionPin: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
   addressBar: {
     backgroundColor: '#E8F5E9',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginBottom: 8,
+    marginVertical: 4,
     borderWidth: 1,
     borderColor: '#A5D6A7',
   },
