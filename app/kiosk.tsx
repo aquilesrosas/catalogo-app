@@ -115,10 +115,11 @@ export default function KioskScreen() {
     // Inactivity timer
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Block hardware back button inside kiosk
+    // Hardware back button → go back to main view
     useEffect(() => {
         const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-            setPinModalVisible(true);
+            store.resetKiosk();
+            router.back();
             return true;
         });
         return () => sub.remove();
@@ -153,6 +154,15 @@ export default function KioskScreen() {
         fetchData();
     }, []);
 
+    // Helper: sort products so available (in_stock) come first
+    const sortByAvailability = (prods: Product[]) => {
+        return [...prods].sort((a, b) => {
+            if (a.in_stock && !b.in_stock) return -1;
+            if (!a.in_stock && b.in_stock) return 1;
+            return 0;
+        });
+    };
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -184,11 +194,13 @@ export default function KioskScreen() {
                     allCats.filter((c: any) => kioskCategoryIds.includes(c.id_categoria))
                         .map((c: any) => c.nombre_categoria.toLowerCase())
                 );
-                setProducts(allProds.filter((p: any) =>
-                    p.category && allowedNames.has(p.category.toLowerCase())
+                setProducts(sortByAvailability(
+                    allProds.filter((p: any) =>
+                        p.category && allowedNames.has(p.category.toLowerCase())
+                    )
                 ));
             } else {
-                setProducts(allProds);
+                setProducts(sortByAvailability(allProds));
             }
         } catch (e) {
             console.error('Error loading kiosk data:', e);
@@ -201,22 +213,26 @@ export default function KioskScreen() {
     useEffect(() => {
         const fetchByCategory = async () => {
             try {
-                const params: any = { page: 1 };
-                if (selectedCategory) params.category = selectedCategory;
-                const data = await getProducts(params);
-                const allProds = data.results || [];
-
-                // Filter by kiosk categories (by name match)
-                if (kioskCategoryIds.length > 0 && !selectedCategory) {
+                // When 'Todo' is selected and kiosk categories are configured,
+                // fetch ALL products but filter to only configured categories
+                if (!selectedCategory && kioskCategoryIds.length > 0) {
+                    const data = await getProducts({ page: 1 });
+                    const allProds = data.results || [];
                     const allowedNames = new Set(
                         allCategories.filter(c => kioskCategoryIds.includes(c.id_categoria))
                             .map(c => c.nombre_categoria.toLowerCase())
                     );
-                    setProducts(allProds.filter((p: any) =>
-                        p.category && allowedNames.has(p.category.toLowerCase())
+                    setProducts(sortByAvailability(
+                        allProds.filter((p: any) =>
+                            p.category && allowedNames.has(p.category.toLowerCase())
+                        )
                     ));
                 } else {
-                    setProducts(allProds);
+                    // Specific category selected OR no kiosk filter configured
+                    const params: any = { page: 1 };
+                    if (selectedCategory) params.category = selectedCategory;
+                    const data = await getProducts(params);
+                    setProducts(sortByAvailability(data.results || []));
                 }
             } catch (e) {
                 console.error(e);
