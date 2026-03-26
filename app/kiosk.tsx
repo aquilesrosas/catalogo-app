@@ -36,14 +36,7 @@ const INACTIVITY_TIMEOUT = 60000; // 60 seconds
 const ADMIN_PIN = '2424'; // PIN para salir del kiosco
 const CONFIG_PIN = '1234'; // PIN para configurar categorías
 
-const EXTRAS = [
-    { id: 1001, name: 'Extra Queso', price: 500 },
-    { id: 1002, name: 'Extra Bacon', price: 800 },
-    { id: 1003, name: 'Huevo Frito', price: 300 },
-    { id: 1004, name: 'Sin Cebolla', price: 0 },
-    { id: 1005, name: 'Con Mayonesa', price: 0 },
-    { id: 1006, name: 'Con Ketchup', price: 0 },
-];
+// Hardcoded extras removed. Dynamic extras will be loaded from configured categories.
 
 // ─── Main Kiosk Screen ──────────────────────
 export default function KioskScreen() {
@@ -56,7 +49,9 @@ export default function KioskScreen() {
     const store = useKioskStore();
     const params = useLocalSearchParams();
     const kioskCategoryIds = useConfigStore((s) => s.kioskCategoryIds);
+    const kioskExtraCategoryIds = useConfigStore((s) => s.kioskExtraCategoryIds) || [];
     const setKioskCategoryIds = useConfigStore((s) => s.setKioskCategoryIds);
+    const setKioskExtraCategoryIds = useConfigStore((s) => s.setKioskExtraCategoryIds);
     const { isLoggedIn, clientId, clientName, clientPhone } = useAuthStore();
 
     // Set kioskId from URL param (Table QR Ordering)
@@ -83,6 +78,7 @@ export default function KioskScreen() {
 
     // Data
     const [products, setProducts] = useState<Product[]>([]);
+    const [dynamicExtras, setDynamicExtras] = useState<any[]>([]);
     const [allCategories, setAllCategories] = useState<Category[]>([]);
     const [paymentMethods, setPaymentMethods] = useState<Array<{ id: string, name: string }>>([]);
     const [loading, setLoading] = useState(true);
@@ -111,6 +107,7 @@ export default function KioskScreen() {
     // Config modal
     const [configModalVisible, setConfigModalVisible] = useState(false);
     const [tempCategoryIds, setTempCategoryIds] = useState<number[]>([]);
+    const [tempExtraCategoryIds, setTempExtraCategoryIds] = useState<number[]>([]);
 
     // Inactivity timer
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -201,6 +198,27 @@ export default function KioskScreen() {
                 ));
             } else {
                 setProducts(sortByAvailability(allProds));
+            }
+
+            // Build Dynamic Extras List
+            if (kioskExtraCategoryIds && kioskExtraCategoryIds.length > 0) {
+                const extraNames = new Set(
+                    allCats.filter((c: any) => kioskExtraCategoryIds.includes(c.id_categoria))
+                        .map((c: any) => c.nombre_categoria.toLowerCase())
+                );
+                
+                const extras = allProds
+                    .filter((p: any) => p.category && extraNames.has(p.category.toLowerCase()) && p.in_stock)
+                    .map((p: any) => ({
+                        id: p.id_producto,
+                        name: p.nombre_producto,
+                        price: parseFloat(p.price || p.precio_venta || '0')
+                    }));
+                // Sort extras alphabetically
+                extras.sort((a: any, b: any) => a.name.localeCompare(b.name));
+                setDynamicExtras(extras);
+            } else {
+                setDynamicExtras([]);
             }
         } catch (e) {
             console.error('Error loading kiosk data:', e);
@@ -368,6 +386,7 @@ export default function KioskScreen() {
             setPinInput('');
             if (pinAction === 'config') {
                 setTempCategoryIds([...kioskCategoryIds]);
+                setTempExtraCategoryIds([...(kioskExtraCategoryIds || [])]);
                 setConfigModalVisible(true);
             } else {
                 store.resetKiosk();
@@ -387,6 +406,7 @@ export default function KioskScreen() {
 
     const handleSaveConfig = () => {
         setKioskCategoryIds(tempCategoryIds);
+        setKioskExtraCategoryIds(tempExtraCategoryIds);
         setConfigModalVisible(false);
         // Reload products with new filter
         fetchData();
@@ -394,6 +414,12 @@ export default function KioskScreen() {
 
     const toggleCategoryId = (id: number) => {
         setTempCategoryIds((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        );
+    };
+
+    const toggleExtraCategoryId = (id: number) => {
+        setTempExtraCategoryIds((prev) =>
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
         );
     };
@@ -612,27 +638,31 @@ export default function KioskScreen() {
                                 </View>
 
                                 {/* EXTRAS */}
-                                <Text style={s.sectionLabel}>Aderezos y Extras</Text>
-                                <View style={s.extrasGrid}>
-                                    {EXTRAS.map(extra => {
-                                        const isSelected = !!selectedExtras.find(e => e.id === extra.id);
-                                        return (
-                                            <Pressable
-                                                key={extra.id}
-                                                style={[s.extraBtn, isSelected && s.extraBtnActive]}
-                                                onPress={() => toggleExtra(extra)}
-                                            >
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={[s.extraName, isSelected && s.extraTextActive]}>{extra.name}</Text>
-                                                    {extra.price > 0 && (
-                                                        <Text style={[s.extraPrice, isSelected && s.extraTextActive]}>+ {formatPrice(extra.price)}</Text>
-                                                    )}
-                                                </View>
-                                                {isSelected && <Text style={s.checkIconSmall}>✓</Text>}
-                                            </Pressable>
-                                        );
-                                    })}
-                                </View>
+                                {dynamicExtras.length > 0 && (
+                                    <>
+                                        <Text style={s.sectionLabel}>Aderezos y Extras</Text>
+                                        <View style={s.extrasGrid}>
+                                            {dynamicExtras.map(extra => {
+                                                const isSelected = !!selectedExtras.find(e => e.id === extra.id);
+                                                return (
+                                                    <Pressable
+                                                        key={extra.id}
+                                                        style={[s.extraBtn, isSelected && s.extraBtnActive]}
+                                                        onPress={() => toggleExtra(extra)}
+                                                    >
+                                                        <View style={{ flex: 1 }}>
+                                                            <Text style={[s.extraName, isSelected && s.extraTextActive]}>{extra.name}</Text>
+                                                            {extra.price > 0 && (
+                                                                <Text style={[s.extraPrice, isSelected && s.extraTextActive]}>+ {formatPrice(extra.price)}</Text>
+                                                            )}
+                                                        </View>
+                                                        {isSelected && <Text style={s.checkIconSmall}>✓</Text>}
+                                                    </Pressable>
+                                                );
+                                            })}
+                                        </View>
+                                    </>
+                                )}
                             </ScrollView>
 
                             {/* Add Button */}
@@ -813,13 +843,13 @@ export default function KioskScreen() {
                             <Text style={s.modalCloseBtnText}>✕</Text>
                         </Pressable>
                     </View>
-                    <Text style={s.configHint}>Seleccioná qué categorías se muestran. Si no seleccionás ninguna, se muestran todas.</Text>
-                    <ScrollView style={s.paymentScroll}>
+                    <Text style={s.configHint}>Seleccioná qué categorías se usan como Menú Principal (si no elegís ninguna, se muestran todas).</Text>
+                    <ScrollView style={[s.paymentScroll, { maxHeight: '35%' }]} showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
                         {allCategories.map((cat) => {
                             const isSelected = tempCategoryIds.includes(cat.id_categoria);
                             return (
                                 <Pressable
-                                    key={cat.id_categoria}
+                                    key={`main-${cat.id_categoria}`}
                                     style={[s.paymentOption, isSelected && s.paymentOptionActive]}
                                     onPress={() => toggleCategoryId(cat.id_categoria)}
                                 >
@@ -831,12 +861,30 @@ export default function KioskScreen() {
                             );
                         })}
                     </ScrollView>
+
+                    <Text style={[s.configHint, { marginTop: 24, paddingBottom: 8, borderTopWidth: 1, borderTopColor: '#333', paddingTop: 20 }]}>Seleccioná qué categorías actúan como Extras/Aderezos dentro de cada producto.</Text>
+                    <ScrollView style={[s.paymentScroll, { maxHeight: '35%' }]} showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
+                        {allCategories.map((cat) => {
+                            const isSelected = tempExtraCategoryIds.includes(cat.id_categoria);
+                            return (
+                                <Pressable
+                                    key={`opt-${cat.id_categoria}`}
+                                    style={[s.paymentOption, isSelected && s.paymentOptionActive]}
+                                    onPress={() => toggleExtraCategoryId(cat.id_categoria)}
+                                >
+                                    <Text style={[s.paymentOptionText, isSelected && s.paymentOptionTextActive]}>
+                                        {cat.nombre_categoria}
+                                    </Text>
+                                    {isSelected && <Text style={s.checkIcon}>✓</Text>}
+                                </Pressable>
+                            );
+                        })}
+                    </ScrollView>
+
                     <View style={s.builderFooter}>
                         <Pressable style={s.addCartBtn} onPress={handleSaveConfig}>
                             <Text style={s.addCartBtnText}>
-                                {tempCategoryIds.length > 0
-                                    ? `Guardar (${tempCategoryIds.length} categorías)`
-                                    : 'Guardar (Mostrar todas)'}
+                                Guardar Configuración
                             </Text>
                         </Pressable>
                     </View>
