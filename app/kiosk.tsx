@@ -160,15 +160,42 @@ export default function KioskScreen() {
         });
     };
 
+    // Helper: fetch products for multiple categories and merge (avoids pagination issues)
+    const fetchProductsByCategories = async (categoryIds: number[], cats: Category[]): Promise<Product[]> => {
+        if (categoryIds.length === 0) {
+            // No filter — fetch page 1 with max page_size
+            const data = await getProducts({ page: 1, page_size: 50 } as any);
+            return data.results || [];
+        }
+        // Fetch each configured category separately to get all products
+        const fetches = categoryIds.map(async (catId) => {
+            try {
+                const data = await getProducts({ page: 1, category: catId, page_size: 50 } as any);
+                return data.results || [];
+            } catch { return []; }
+        });
+        const results = await Promise.all(fetches);
+        // Merge and deduplicate by id_producto
+        const seen = new Set<number>();
+        const merged: Product[] = [];
+        for (const list of results) {
+            for (const p of list) {
+                if (!seen.has(p.id_producto)) {
+                    seen.add(p.id_producto);
+                    merged.push(p);
+                }
+            }
+        }
+        return merged;
+    };
+
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [prods, cats, methods] = await Promise.all([
-                getProducts({ page: 1 }),
+            const [cats, methods] = await Promise.all([
                 getCategories(),
                 getPaymentMethods(),
             ]);
-            const allProds = prods.results || [];
             const allCats = cats || [];
             setAllCategories(allCats);
             // For kiosk: only show Efectivo, Transferencia + always add Mixto
@@ -185,36 +212,20 @@ export default function KioskScreen() {
             ];
             setPaymentMethods(kioskMethods as any);
 
-            // Filter products by kiosk categories if configured
-            if (kioskCategoryIds.length > 0) {
-                const allowedNames = new Set(
-                    allCats.filter((c: any) => kioskCategoryIds.includes(c.id_categoria))
-                        .map((c: any) => c.nombre_categoria.toLowerCase())
-                );
-                setProducts(sortByAvailability(
-                    allProds.filter((p: any) =>
-                        p.category && allowedNames.has(p.category.toLowerCase())
-                    )
-                ));
-            } else {
-                setProducts(sortByAvailability(allProds));
-            }
+            // Fetch products for configured kiosk categories
+            const allProds = await fetchProductsByCategories(kioskCategoryIds, allCats);
+            setProducts(sortByAvailability(allProds));
 
             // Build Dynamic Extras List
             if (kioskExtraCategoryIds && kioskExtraCategoryIds.length > 0) {
-                const extraNames = new Set(
-                    allCats.filter((c: any) => kioskExtraCategoryIds.includes(c.id_categoria))
-                        .map((c: any) => c.nombre_categoria.toLowerCase())
-                );
-                
-                const extras = allProds
-                    .filter((p: any) => p.category && extraNames.has(p.category.toLowerCase()) && p.in_stock)
+                const extraProds = await fetchProductsByCategories(kioskExtraCategoryIds, allCats);
+                const extras = extraProds
+                    .filter((p: any) => p.in_stock)
                     .map((p: any) => ({
                         id: p.id_producto,
                         name: p.nombre_producto,
                         price: parseFloat(p.price || p.precio_venta || '0')
                     }));
-                // Sort extras alphabetically
                 extras.sort((a: any, b: any) => a.name.localeCompare(b.name));
                 setDynamicExtras(extras);
             } else {
@@ -231,25 +242,15 @@ export default function KioskScreen() {
     useEffect(() => {
         const fetchByCategory = async () => {
             try {
-                // When 'Todo' is selected and kiosk categories are configured,
-                // fetch ALL products but filter to only configured categories
                 if (!selectedCategory && kioskCategoryIds.length > 0) {
-                    const data = await getProducts({ page: 1 });
-                    const allProds = data.results || [];
-                    const allowedNames = new Set(
-                        allCategories.filter(c => kioskCategoryIds.includes(c.id_categoria))
-                            .map(c => c.nombre_categoria.toLowerCase())
-                    );
-                    setProducts(sortByAvailability(
-                        allProds.filter((p: any) =>
-                            p.category && allowedNames.has(p.category.toLowerCase())
-                        )
-                    ));
+                    // 'Todo' selected with kiosk filter → fetch each configured category
+                    const allProds = await fetchProductsByCategories(kioskCategoryIds, allCategories);
+                    setProducts(sortByAvailability(allProds));
                 } else {
                     // Specific category selected OR no kiosk filter configured
-                    const params: any = { page: 1 };
+                    const params: any = { page: 1, page_size: 50 };
                     if (selectedCategory) params.category = selectedCategory;
-                    const data = await getProducts(params);
+                    const data = await getProducts(params as any);
                     setProducts(sortByAvailability(data.results || []));
                 }
             } catch (e) {
