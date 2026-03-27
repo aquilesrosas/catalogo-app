@@ -207,6 +207,15 @@ export async function getStoreConfig(): Promise<StoreConfig> {
     return data;
 }
 
+export async function saveKioskConfig(config: {
+    kiosk_category_ids?: number[];
+    kiosk_extra_category_ids?: number[];
+    kiosk_title?: string;
+}): Promise<{ ok: boolean; catalog_config: Record<string, unknown> }> {
+    const { data } = await api.post('store/config/', config);
+    return data;
+}
+
 // ─── Ofertas API ───
 export interface Oferta {
     id: number;

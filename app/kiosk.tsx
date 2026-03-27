@@ -23,6 +23,8 @@ import {
     getProducts,
     getCategories,
     getPaymentMethods,
+    getStoreConfig,
+    saveKioskConfig,
     searchClientsPublic,
     registerClientPublic,
     createOrder,
@@ -50,8 +52,10 @@ export default function KioskScreen() {
     const params = useLocalSearchParams();
     const kioskCategoryIds = useConfigStore((s) => s.kioskCategoryIds);
     const kioskExtraCategoryIds = useConfigStore((s) => s.kioskExtraCategoryIds) || [];
+    const kioskTitle = useConfigStore((s) => s.kioskTitle);
     const setKioskCategoryIds = useConfigStore((s) => s.setKioskCategoryIds);
     const setKioskExtraCategoryIds = useConfigStore((s) => s.setKioskExtraCategoryIds);
+    const setKioskTitle = useConfigStore((s) => s.setKioskTitle);
     const { isLoggedIn, clientId, clientName, clientPhone } = useAuthStore();
 
     // Set kioskId from URL param (Table QR Ordering)
@@ -192,12 +196,32 @@ export default function KioskScreen() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [cats, methods] = await Promise.all([
+            const [cats, methods, storeConfig] = await Promise.all([
                 getCategories(),
                 getPaymentMethods(),
+                getStoreConfig().catch(() => null),
             ]);
             const allCats = cats || [];
             setAllCategories(allCats);
+
+            // ── Sync server-side kiosk config ──
+            // Server config is authoritative: if set from web, always apply it
+            const serverConfig = (storeConfig?.catalog_config || {}) as Record<string, unknown>;
+            let effectiveCategoryIds = kioskCategoryIds;
+            let effectiveExtraCategoryIds = kioskExtraCategoryIds;
+
+            if (Array.isArray(serverConfig.kiosk_category_ids) && serverConfig.kiosk_category_ids.length > 0) {
+                effectiveCategoryIds = serverConfig.kiosk_category_ids as number[];
+                setKioskCategoryIds(effectiveCategoryIds);
+            }
+            if (Array.isArray(serverConfig.kiosk_extra_category_ids) && serverConfig.kiosk_extra_category_ids.length > 0) {
+                effectiveExtraCategoryIds = serverConfig.kiosk_extra_category_ids as number[];
+                setKioskExtraCategoryIds(effectiveExtraCategoryIds);
+            }
+            if (serverConfig.kiosk_title && typeof serverConfig.kiosk_title === 'string') {
+                setKioskTitle(serverConfig.kiosk_title);
+            }
+
             // For kiosk: only show Efectivo, Transferencia + always add Mixto
             const KIOSK_TYPES = ['EFECTIVO', 'TRANSFERENCIA'];
             const apiMethods = (methods || []).filter((m: any) => KIOSK_TYPES.includes(m.tipo));
@@ -213,12 +237,12 @@ export default function KioskScreen() {
             setPaymentMethods(kioskMethods as any);
 
             // Fetch products for configured kiosk categories
-            const allProds = await fetchProductsByCategories(kioskCategoryIds, allCats);
+            const allProds = await fetchProductsByCategories(effectiveCategoryIds, allCats);
             setProducts(sortByAvailability(allProds));
 
             // Build Dynamic Extras List
-            if (kioskExtraCategoryIds && kioskExtraCategoryIds.length > 0) {
-                const extraProds = await fetchProductsByCategories(kioskExtraCategoryIds, allCats);
+            if (effectiveExtraCategoryIds && effectiveExtraCategoryIds.length > 0) {
+                const extraProds = await fetchProductsByCategories(effectiveExtraCategoryIds, allCats);
                 const extras = extraProds
                     .filter((p: any) => p.in_stock)
                     .map((p: any) => ({
@@ -405,10 +429,22 @@ export default function KioskScreen() {
         setPinModalVisible(true);
     };
 
-    const handleSaveConfig = () => {
+    const handleSaveConfig = async () => {
         setKioskCategoryIds(tempCategoryIds);
         setKioskExtraCategoryIds(tempExtraCategoryIds);
         setConfigModalVisible(false);
+
+        // Persist to server so changes sync with web ERP
+        try {
+            await saveKioskConfig({
+                kiosk_category_ids: tempCategoryIds,
+                kiosk_extra_category_ids: tempExtraCategoryIds,
+                kiosk_title: kioskTitle,
+            });
+        } catch (e) {
+            console.warn('Failed to sync kiosk config to server:', e);
+        }
+
         // Reload products with new filter
         fetchData();
     };
