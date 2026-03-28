@@ -168,13 +168,13 @@ export default function KioskScreen() {
     const fetchProductsByCategories = async (categoryIds: number[], cats: Category[]): Promise<Product[]> => {
         if (categoryIds.length === 0) {
             // No filter — fetch page 1 with max page_size
-            const data = await getProducts({ page: 1, page_size: 50 } as any);
+            const data = await getProducts({ page: 1, for_kiosk: true, page_size: 50 } as any);
             return data.results || [];
         }
         // Fetch each configured category separately to get all products
         const fetches = categoryIds.map(async (catId) => {
             try {
-                const data = await getProducts({ page: 1, category: catId, page_size: 50 } as any);
+                const data = await getProducts({ page: 1, category: catId, for_kiosk: true, page_size: 50 } as any);
                 return data.results || [];
             } catch { return []; }
         });
@@ -197,7 +197,7 @@ export default function KioskScreen() {
         setLoading(true);
         try {
             const [cats, methods, storeConfig] = await Promise.all([
-                getCategories(),
+                getCategories({ for_kiosk: true }),
                 getPaymentMethods(),
                 getStoreConfig().catch(() => null),
             ]);
@@ -272,7 +272,7 @@ export default function KioskScreen() {
                     setProducts(sortByAvailability(allProds));
                 } else {
                     // Specific category selected OR no kiosk filter configured
-                    const params: any = { page: 1, page_size: 50 };
+                    const params: any = { page: 1, for_kiosk: true, page_size: 50 };
                     if (selectedCategory) params.category = selectedCategory;
                     const data = await getProducts(params as any);
                     setProducts(sortByAvailability(data.results || []));

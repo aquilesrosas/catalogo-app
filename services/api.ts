@@ -187,6 +187,7 @@ export async function getProducts(params?: {
     page?: number;
     search?: string;
     category?: number;
+    for_kiosk?: boolean;
 }): Promise<PaginatedResponse<Product>> {
     const { data } = await api.get('products/', { params });
     return data;
@@ -197,8 +198,8 @@ export async function getProduct(id: number): Promise<Product> {
     return data;
 }
 
-export async function getCategories(): Promise<Category[]> {
-    const { data } = await api.get('categories/');
+export async function getCategories(params?: { for_kiosk?: boolean }): Promise<Category[]> {
+    const { data } = await api.get('categories/', { params });
     return data;
 }
 
