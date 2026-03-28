@@ -36,7 +36,7 @@ import { formatPrice } from '@/utils/format';
 // ─── Constants ───────────────────────────────
 const INACTIVITY_TIMEOUT = 60000; // 60 seconds
 const ADMIN_PIN = '2424'; // PIN para salir del kiosco
-const CONFIG_PIN = '1234'; // PIN para configurar categorías
+const CONFIG_PIN = '2026420'; // PIN para configurar categorías
 
 // Hardcoded extras removed. Dynamic extras will be loaded from configured categories.
 
