@@ -13,6 +13,7 @@ import {
     useWindowDimensions,
     StatusBar,
     BackHandler,
+    Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useKioskStore } from '@/stores/kioskStore';
@@ -487,8 +488,12 @@ export default function KioskScreen() {
                     setBuilderNotes('');
                 }}
             >
-                <View style={s.productImgPlaceholder}>
-                    <Text style={s.productEmoji}>🍔</Text>
+                <View style={[s.productImgPlaceholder, item.image_url && { backgroundColor: 'transparent' }]}>
+                    {item.image_url ? (
+                        <Image source={{ uri: item.image_url }} style={s.productImageReal} resizeMode="cover" />
+                    ) : (
+                        <Text style={s.productEmoji}>🍔</Text>
+                    )}
                     <View style={s.productUnitBadge}>
                         <Text style={s.productUnitText}>{item.unit || 'Unid'}</Text>
                     </View>
@@ -858,7 +863,7 @@ export default function KioskScreen() {
                             onChangeText={setPinInput}
                             secureTextEntry
                             keyboardType="number-pad"
-                            maxLength={6}
+                            maxLength={10}
                             autoFocus
                         />
                         <View style={s.pinActions}>
@@ -971,6 +976,7 @@ const s = StyleSheet.create({
     // Product Card
     productCard: { backgroundColor: '#1E1E1E', borderRadius: 20, overflow: 'hidden', position: 'relative' },
     productImgPlaceholder: { height: 110, backgroundColor: '#282828', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+    productImageReal: { width: '100%', height: '100%', position: 'absolute' },
     productEmoji: { fontSize: 48, opacity: 0.4 },
     productUnitBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
     productUnitText: { fontSize: 10, fontWeight: '700', color: '#000' },
