@@ -23,7 +23,11 @@ function ConfigSetupScreen() {
     const handleConfirm = async () => {
         const cleanSlug = slug.trim();
         if (!cleanSlug) {
-            Alert.alert('Error', 'Ingresá el código de tu local');
+            if (Platform.OS === 'web') {
+                window.alert('Ingresá el código de tu local');
+            } else {
+                Alert.alert('Error', 'Ingresá el código de tu local');
+            }
             return;
         }
 
@@ -35,14 +39,23 @@ function ConfigSetupScreen() {
             // Intentamos cargar la config de la tienda para validar que el slug existe
             await getStoreConfig();
 
-            // Wait for user to dismiss alert before navigating to prevent WindowManager crash on Android
-            Alert.alert('✅ ¡Listo!', 'Configuración guardada correctamente', [
-                { text: 'OK', onPress: () => router.push('/') }
-            ]);
+            if (Platform.OS === 'web') {
+                window.alert('✅ ¡Listo! Configuración guardada correctamente');
+                router.push('/');
+            } else {
+                // Wait for user to dismiss alert before navigating to prevent WindowManager crash on Android
+                Alert.alert('✅ ¡Listo!', 'Configuración guardada correctamente', [
+                    { text: 'OK', onPress: () => router.push('/') }
+                ]);
+            }
         } catch (err: any) {
             // Si falla, revertimos y avisamos
             setTenantSlug('');
-            Alert.alert('Error', 'No se encontró un local con ese código. Verificá y probá de nuevo.');
+            if (Platform.OS === 'web') {
+                window.alert('No se encontró un local con ese código. Verificá y probá de nuevo.');
+            } else {
+                Alert.alert('Error', 'No se encontró un local con ese código. Verificá y probá de nuevo.');
+            }
         } finally {
             setLoading(false);
         }
