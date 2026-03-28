@@ -262,8 +262,13 @@ export default function KioskScreen() {
         }
     };
 
-    // Fetch products when category changes
+    // Fetch products when category changes (but skip initial render since fetchData handles it)
+    const isFirstRender = useRef(true);
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         const fetchByCategory = async () => {
             try {
                 if (!selectedCategory && kioskCategoryIds.length > 0) {
@@ -282,7 +287,7 @@ export default function KioskScreen() {
             }
         };
         fetchByCategory();
-    }, [selectedCategory]);
+    }, [selectedCategory, kioskCategoryIds]);
 
     // ─── Handlers ────────────────────────────
     const handleAddToCart = () => {
