@@ -119,7 +119,7 @@ export interface CreateOrderPayload {
     latitud?: number;
     longitud?: number;
     items: OrderItem[];
-    payment_method: 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO';
+    payment_method: 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO' | 'MERCADOPAGO';
     payment_amount_cash?: number;
     payment_amount_transfer?: number;
     notes?: string;
@@ -248,8 +248,19 @@ export async function getActiveOffers(): Promise<Oferta[]> {
     }
 }
 
-export async function createOrder(payload: CreateOrderPayload): Promise<OrderResponse> {
+export async function createOrder(payload: CreateOrderPayload): Promise<OrderResponse & { payment_url?: string; preference_id?: string }> {
     const { data } = await api.post('orders/', payload);
+    return data;
+}
+
+export async function checkPaymentStatus(orderId: number): Promise<{
+    payment_status: string;
+    payment_method: string;
+    order_status: string;
+    pending_caja_register: boolean;
+    mp_expiration: string | null;
+}> {
+    const { data } = await api.get(`orders/${orderId}/payment-status/`);
     return data;
 }
 

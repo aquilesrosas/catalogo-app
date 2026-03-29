@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -10,16 +10,17 @@ import {
     ActivityIndicator,
     Keyboard,
     Platform,
+    Linking,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
 import { formatPrice } from '@/utils/format';
-import { createOrder, getAvailableSlots, AttendanceSlot } from '@/services/api';
+import { createOrder, getAvailableSlots, checkPaymentStatus, AttendanceSlot } from '@/services/api';
 import * as Location from 'expo-location';
 import LocationPickerMap from '@/components/LocationPickerMap';
 
-type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO';
+type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO' | 'MERCADOPAGO';
 
 export default function CheckoutScreen() {
     const { items, getTotal, clearCart } = useCartStore();
@@ -37,6 +38,12 @@ export default function CheckoutScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationLoading, setLocationLoading] = useState(false);
+
+    // ─── Mercado Pago State ───
+    const [mpWaiting, setMpWaiting] = useState(false);
+    const [mpOrderId, setMpOrderId] = useState<number | null>(null);
+    const [mpPaymentStatus, setMpPaymentStatus] = useState<string>('PENDING');
+    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // ─── Scheduling State ───
     const [isScheduled, setIsScheduled] = useState(false);
@@ -198,6 +205,62 @@ export default function CheckoutScreen() {
             console.log('[Checkout] Sending payload:', JSON.stringify(payload));
             const result = await createOrder(payload);
             console.log('[Checkout] Order result:', JSON.stringify(result));
+
+            // ── Mercado Pago: abrir checkout y esperar ──
+            if (paymentMethod === 'MERCADOPAGO' && result.payment_url) {
+                const orderId = result.order?.id;
+                setMpOrderId(orderId);
+                setMpWaiting(true);
+                setMpPaymentStatus('PENDING');
+
+                // Abrir link de pago en navegador
+                try {
+                    await Linking.openURL(result.payment_url);
+                } catch (e) {
+                    console.error('Error opening MP URL:', e);
+                }
+
+                // Iniciar polling cada 3 segundos
+                pollingRef.current = setInterval(async () => {
+                    try {
+                        const status = await checkPaymentStatus(orderId);
+                        setMpPaymentStatus(status.payment_status);
+
+                        if (status.payment_status === 'VERIFIED') {
+                            // Pago confirmado!
+                            if (pollingRef.current) clearInterval(pollingRef.current);
+                            clearCart();
+                            showAlert(
+                                '✅ ¡Pago confirmado!',
+                                `Tu pedido #${orderId} fue pagado exitosamente con Mercado Pago.\nTotal: ${formatPrice(result.order?.total || total)}`,
+                                () => router.replace('/')
+                            );
+                            setMpWaiting(false);
+                        } else if (status.payment_status === 'FAILED' || status.payment_status === 'EXPIRED') {
+                            if (pollingRef.current) clearInterval(pollingRef.current);
+                            showAlert(
+                                '❌ Pago no completado',
+                                'El pago fue rechazado o expiró. Tu pedido fue creado, podés intentar pagarlo de nuevo.',
+                            );
+                            setMpWaiting(false);
+                        }
+                    } catch {
+                        // silenciar errores de polling
+                    }
+                }, 3000);
+
+                // Timeout: dejar de esperar después de 5 minutos
+                setTimeout(() => {
+                    if (pollingRef.current) {
+                        clearInterval(pollingRef.current);
+                        clearCart();
+                        setMpWaiting(false);
+                    }
+                }, 5 * 60 * 1000);
+
+                setSubmitting(false);
+                return;
+            }
 
             clearCart();
 
@@ -511,6 +574,18 @@ export default function CheckoutScreen() {
                                 Mixto
                             </Text>
                         </Pressable>
+                        <Pressable
+                            style={[
+                                styles.paymentOption,
+                                paymentMethod === 'MERCADOPAGO' && styles.mpActive,
+                            ]}
+                            onPress={() => setPaymentMethod('MERCADOPAGO')}
+                        >
+                            <Text style={styles.paymentIcon}>💳</Text>
+                            <Text style={[styles.paymentText, paymentMethod === 'MERCADOPAGO' && styles.mpTextActive]}>
+                                Mercado Pago
+                            </Text>
+                        </Pressable>
                     </View>
 
                     {paymentMethod === 'MIXTO' && (
@@ -564,6 +639,56 @@ export default function CheckoutScreen() {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
+
+            {/* ── Mercado Pago: Pantalla de espera ── */}
+            {mpWaiting && (
+                <View style={styles.mpOverlay}>
+                    <View style={styles.mpWaitingCard}>
+                        {mpPaymentStatus === 'PENDING' || mpPaymentStatus === 'IN_PROCESS' ? (
+                            <>
+                                <ActivityIndicator size="large" color="#009ee3" />
+                                <Text style={styles.mpWaitingTitle}>Verificando tu pago...</Text>
+                                <Text style={styles.mpWaitingSubtitle}>
+                                    Completá el pago en Mercado Pago y volvé a esta pantalla.
+                                </Text>
+                                <Pressable
+                                    style={styles.mpCheckBtn}
+                                    onPress={async () => {
+                                        if (!mpOrderId) return;
+                                        try {
+                                            const s = await checkPaymentStatus(mpOrderId);
+                                            setMpPaymentStatus(s.payment_status);
+                                            if (s.payment_status === 'VERIFIED') {
+                                                if (pollingRef.current) clearInterval(pollingRef.current);
+                                                clearCart();
+                                                showAlert('✅ ¡Pago confirmado!', 'Tu pedido fue pagado exitosamente.', () => router.replace('/'));
+                                                setMpWaiting(false);
+                                            } else {
+                                                showAlert('⏳', `Estado actual: ${s.payment_status}. Seguimos esperando...`);
+                                            }
+                                        } catch {
+                                            showAlert('Error', 'No se pudo verificar. Intentá de nuevo.');
+                                        }
+                                    }}
+                                >
+                                    <Text style={styles.mpCheckBtnText}>✅ Ya pagué</Text>
+                                </Pressable>
+                                <Pressable
+                                    style={styles.mpCancelBtn}
+                                    onPress={() => {
+                                        if (pollingRef.current) clearInterval(pollingRef.current);
+                                        clearCart();
+                                        setMpWaiting(false);
+                                        showAlert('Pedido creado', 'Tu pedido fue creado. Podés pagar más tarde desde tu historial.', () => router.replace('/'));
+                                    }}
+                                >
+                                    <Text style={styles.mpCancelBtnText}>Cancelar espera</Text>
+                                </Pressable>
+                            </>
+                        ) : null}
+                    </View>
+                </View>
+            )}
         </>
     );
 }
@@ -869,5 +994,70 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#7F5F01',
         lineHeight: 18,
-    }
+    },
+    // ─── Mercado Pago Styles ───
+    mpActive: {
+        borderColor: '#009ee3',
+        backgroundColor: '#e6f7ff',
+    },
+    mpTextActive: {
+        color: '#009ee3',
+        fontWeight: '700',
+    },
+    mpOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999,
+    },
+    mpWaitingCard: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 32,
+        marginHorizontal: 24,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
+        width: '85%',
+    },
+    mpWaitingTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#1a1a1a',
+        marginTop: 20,
+        textAlign: 'center',
+    },
+    mpWaitingSubtitle: {
+        fontSize: 14,
+        color: '#666',
+        marginTop: 8,
+        textAlign: 'center',
+        lineHeight: 20,
+    },
+    mpCheckBtn: {
+        backgroundColor: '#009ee3',
+        paddingVertical: 14,
+        paddingHorizontal: 32,
+        borderRadius: 12,
+        marginTop: 24,
+        width: '100%',
+        alignItems: 'center',
+    },
+    mpCheckBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    mpCancelBtn: {
+        paddingVertical: 12,
+        marginTop: 12,
+    },
+    mpCancelBtnText: {
+        color: '#999',
+        fontSize: 14,
+    },
 });
