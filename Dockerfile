@@ -15,7 +15,7 @@ FROM public.ecr.aws/docker/library/nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Redirigir siempre a index.html (regla SPA para Expo Router)
-RUN echo "server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files \$uri \$uri/ /index.html; } }" > /etc/nginx/conf.d/default.conf
+RUN echo "server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files \$uri \$uri/ \$uri.html /index.html; } }" > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
