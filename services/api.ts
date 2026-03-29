@@ -26,10 +26,11 @@ api.interceptors.request.use(async (config) => {
 
         if (slug && config.url && !config.url.startsWith('http')) {
             // Ensure we don't double the slug if it was already added by a retry
-            if (!config.url.startsWith(slug)) {
+            const encodedSlug = encodeURIComponent(slug);
+            if (!config.url.startsWith(encodedSlug) && !config.url.startsWith(slug)) {
                 // Ensure URL has the tenant prefix if not absolute
                 const cleanUrl = config.url.startsWith('/') ? config.url.substring(1) : config.url;
-                config.url = `${slug}/${cleanUrl}`;
+                config.url = `${encodedSlug}/${cleanUrl}`;
             }
         }
 
