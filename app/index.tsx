@@ -114,6 +114,19 @@ export default function HomeScreen() {
             {error ? (
                 <View style={styles.errorBanner}>
                     <Text style={styles.errorText}>⚠️ {error}</Text>
+                    {(error.includes('404') || error.includes('Tienda no encontrada')) && (
+                        <Pressable 
+                            style={{ marginTop: 10, backgroundColor: '#E65100', padding: 8, borderRadius: 6 }}
+                            onPress={() => {
+                                useConfigStore.getState().clearConfig();
+                                router.replace('/config_setup');
+                            }}
+                        >
+                            <Text style={{ color: '#FFF', fontWeight: 'bold', textAlign: 'center' }}>
+                                Buscar otra tienda
+                            </Text>
+                        </Pressable>
+                    )}
                 </View>
             ) : null}
 
