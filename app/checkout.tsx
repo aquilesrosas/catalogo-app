@@ -61,6 +61,7 @@ export default function CheckoutScreen() {
     const [transferAlias, setTransferAlias] = useState('');
     const [transferCbu, setTransferCbu] = useState('');
     const [transferHolder, setTransferHolder] = useState('');
+    const [whatsappPhone, setWhatsappPhone] = useState('');
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
     // Fetch slots when date changes or isScheduled toggles
@@ -122,6 +123,7 @@ export default function CheckoutScreen() {
                 setTransferAlias((cc.transfer_alias as string) || '');
                 setTransferCbu((cc.transfer_cbu as string) || '');
                 setTransferHolder((cc.transfer_holder as string) || '');
+                setWhatsappPhone((cc.whatsapp_phone as string) || '');
             } catch { }
         })();
     }, []);
@@ -662,11 +664,27 @@ export default function CheckoutScreen() {
                                     </View>
                                 </View>
                             ) : null}
-                            <View style={styles.transferNote}>
-                                <Text style={styles.transferNoteText}>
-                                    💡 Enviá el comprobante por WhatsApp después de transferir
-                                </Text>
-                            </View>
+                            {whatsappPhone ? (
+                                <Pressable
+                                    style={styles.whatsappBtn}
+                                    onPress={() => {
+                                        const msg = encodeURIComponent(
+                                            `Hola! Te envío el comprobante de transferencia por mi pedido de $${formatPrice(total)}.`
+                                        );
+                                        Linking.openURL(`https://wa.me/${whatsappPhone}?text=${msg}`);
+                                    }}
+                                >
+                                    <Text style={styles.whatsappBtnText}>
+                                        💬 Enviar comprobante por WhatsApp
+                                    </Text>
+                                </Pressable>
+                            ) : (
+                                <View style={styles.transferNote}>
+                                    <Text style={styles.transferNoteText}>
+                                        💡 Enviá el comprobante por WhatsApp después de transferir
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     ) : (paymentMethod === 'TRANSFERENCIA' || paymentMethod === 'MIXTO') && !transferAlias ? (
                         <View style={styles.transferCardEmpty}>
@@ -1233,5 +1251,18 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#F57F17',
         lineHeight: 18,
+    },
+    // ─── WhatsApp Button ───
+    whatsappBtn: {
+        backgroundColor: '#25D366',
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    whatsappBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 14,
     },
 });
