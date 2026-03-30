@@ -16,7 +16,8 @@ import { useRouter, Stack } from 'expo-router';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
 import { formatPrice } from '@/utils/format';
-import { createOrder, getAvailableSlots, checkPaymentStatus, AttendanceSlot } from '@/services/api';
+import { createOrder, getAvailableSlots, checkPaymentStatus, getStoreConfig, AttendanceSlot } from '@/services/api';
+import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
 import LocationPickerMap from '@/components/LocationPickerMap';
 
@@ -55,6 +56,12 @@ export default function CheckoutScreen() {
     const [slots, setSlots] = useState<AttendanceSlot[]>([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+
+    // ─── Transfer Details State ───
+    const [transferAlias, setTransferAlias] = useState('');
+    const [transferCbu, setTransferCbu] = useState('');
+    const [transferHolder, setTransferHolder] = useState('');
+    const [copiedField, setCopiedField] = useState<string | null>(null);
 
     // Fetch slots when date changes or isScheduled toggles
     useEffect(() => {
@@ -105,6 +112,19 @@ export default function CheckoutScreen() {
             }
         })();
     }, [tipoEntrega]);
+
+    // Fetch store config for transfer details
+    useEffect(() => {
+        (async () => {
+            try {
+                const config = await getStoreConfig();
+                const cc = config.catalog_config || {};
+                setTransferAlias((cc.transfer_alias as string) || '');
+                setTransferCbu((cc.transfer_cbu as string) || '');
+                setTransferHolder((cc.transfer_holder as string) || '');
+            } catch { }
+        })();
+    }, []);
 
     // Auto-fill from auth store
     useEffect(() => {
@@ -588,6 +608,74 @@ export default function CheckoutScreen() {
                         </Pressable>
                     </View>
 
+                    {/* Transfer Bank Details */}
+                    {(paymentMethod === 'TRANSFERENCIA' || paymentMethod === 'MIXTO') && transferAlias ? (
+                        <View style={styles.transferCard}>
+                            <View style={styles.transferHeader}>
+                                <Text style={styles.transferHeaderText}>🏦 Datos para transferir</Text>
+                            </View>
+                            {transferHolder ? (
+                                <View style={styles.transferRow}>
+                                    <Text style={styles.transferLabel}>Titular</Text>
+                                    <Text style={styles.transferValue}>{transferHolder}</Text>
+                                </View>
+                            ) : null}
+                            <View style={styles.transferRow}>
+                                <Text style={styles.transferLabel}>Alias</Text>
+                                <View style={styles.transferCopyRow}>
+                                    <Text style={styles.transferValueMono}>{transferAlias}</Text>
+                                    <Pressable
+                                        style={styles.copyBtn}
+                                        onPress={async () => {
+                                            try {
+                                                await Clipboard.setStringAsync(transferAlias);
+                                                setCopiedField('alias');
+                                                setTimeout(() => setCopiedField(null), 2000);
+                                            } catch { }
+                                        }}
+                                    >
+                                        <Text style={styles.copyBtnText}>
+                                            {copiedField === 'alias' ? '✅' : '📋'}
+                                        </Text>
+                                    </Pressable>
+                                </View>
+                            </View>
+                            {transferCbu ? (
+                                <View style={styles.transferRow}>
+                                    <Text style={styles.transferLabel}>CBU/CVU</Text>
+                                    <View style={styles.transferCopyRow}>
+                                        <Text style={styles.transferValueMono}>{transferCbu}</Text>
+                                        <Pressable
+                                            style={styles.copyBtn}
+                                            onPress={async () => {
+                                                try {
+                                                    await Clipboard.setStringAsync(transferCbu);
+                                                    setCopiedField('cbu');
+                                                    setTimeout(() => setCopiedField(null), 2000);
+                                                } catch { }
+                                            }}
+                                        >
+                                            <Text style={styles.copyBtnText}>
+                                                {copiedField === 'cbu' ? '✅' : '📋'}
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                </View>
+                            ) : null}
+                            <View style={styles.transferNote}>
+                                <Text style={styles.transferNoteText}>
+                                    💡 Enviá el comprobante por WhatsApp después de transferir
+                                </Text>
+                            </View>
+                        </View>
+                    ) : (paymentMethod === 'TRANSFERENCIA' || paymentMethod === 'MIXTO') && !transferAlias ? (
+                        <View style={styles.transferCardEmpty}>
+                            <Text style={styles.transferEmptyText}>
+                                ⚠️ La tienda aún no configuró los datos de transferencia. Te contactaremos para darte los datos.
+                            </Text>
+                        </View>
+                    ) : null}
+
                     {paymentMethod === 'MIXTO' && (
                         <View style={styles.mixtoArea}>
                             <Text style={styles.inputLabel}>Monto a pagar en Efectivo</Text>
@@ -1059,5 +1147,91 @@ const styles = StyleSheet.create({
     mpCancelBtnText: {
         color: '#999',
         fontSize: 14,
+    },
+    // ─── Transfer Card Styles ───
+    transferCard: {
+        marginTop: 12,
+        backgroundColor: '#f0f7ff',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#b3d4fc',
+        overflow: 'hidden',
+    },
+    transferHeader: {
+        backgroundColor: '#1565C0',
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+    },
+    transferHeaderText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 15,
+    },
+    transferRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#d6e8f7',
+    },
+    transferLabel: {
+        fontSize: 13,
+        color: '#666',
+        fontWeight: '600',
+        minWidth: 70,
+    },
+    transferValue: {
+        fontSize: 14,
+        color: '#1a1a1a',
+        fontWeight: '600',
+        flex: 1,
+        textAlign: 'right',
+    },
+    transferCopyRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        justifyContent: 'flex-end',
+        gap: 8,
+    },
+    transferValueMono: {
+        fontSize: 14,
+        color: '#1a1a1a',
+        fontWeight: '700',
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    },
+    copyBtn: {
+        backgroundColor: '#1565C0',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    copyBtnText: {
+        fontSize: 14,
+    },
+    transferNote: {
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        backgroundColor: '#e8f4e8',
+    },
+    transferNoteText: {
+        fontSize: 12,
+        color: '#2E7D32',
+        fontWeight: '500',
+    },
+    transferCardEmpty: {
+        marginTop: 12,
+        backgroundColor: '#FFF8E1',
+        borderRadius: 10,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: '#FFE082',
+    },
+    transferEmptyText: {
+        fontSize: 13,
+        color: '#F57F17',
+        lineHeight: 18,
     },
 });
