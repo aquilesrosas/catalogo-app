@@ -220,6 +220,7 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
             Alert.alert('No encontrado', 'No se encontró la dirección. Probá con más detalle.');
           }
         }
+      }
     } catch (e) {
       console.error('Geocoding error:', e);
     } finally {
