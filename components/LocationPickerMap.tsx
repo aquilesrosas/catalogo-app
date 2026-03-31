@@ -11,11 +11,13 @@ interface LocationPickerProps {
 }
 
 interface PhotonSuggestion {
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   label: string;
-  houseNumber?: string;
+  place_id?: string;
 }
+
+const GOOGLE_API_KEY = "AIzaSyBNcC-FItywab7GpiQMDlq0KzsHXvnyTe8";
 
 const LocationPickerMap: React.FC<LocationPickerProps> = ({
   initialLocation,
@@ -57,27 +59,15 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
     }
 
     try {
-      // Extract house number from query to pass to Photon
-      const matchNumber = query.match(/\b\d+\b/);
-      const userNumber = matchNumber ? matchNumber[0] : null;
-
-      // Photon API with location bias
-      const latBias = initialLocation?.lat || -24.7821;
-      const lngBias = initialLocation?.lng || -65.4232;
-      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query + ', Salta')}&limit=5&lang=es&lat=${latBias}&lon=${lngBias}`;
-
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&language=es&components=country:ar&key=${GOOGLE_API_KEY}`;
       const res = await fetch(url);
       const data = await res.json();
 
-      if (data && data.features && data.features.length > 0) {
-        const items: PhotonSuggestion[] = data.features.map((f: any) => {
-          const props = f.properties || {};
-          const coords = f.geometry?.coordinates || [lngBias, latBias];
+      if (data && data.predictions && data.predictions.length > 0) {
+        const items: PhotonSuggestion[] = data.predictions.map((p: any) => {
           return {
-            lat: coords[1],
-            lng: coords[0],
-            label: buildLabel(props, userNumber),
-            houseNumber: props.housenumber || userNumber || undefined,
+            label: p.description,
+            place_id: p.place_id,
           };
         });
         setSuggestions(items);
@@ -87,7 +77,7 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
         setShowSuggestions(false);
       }
     } catch (e) {
-      console.error('Photon autocomplete error:', e);
+      console.error('Google Places autocomplete error:', e);
     }
   }, [initialLocation]);
 
@@ -101,22 +91,36 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
   };
 
   // When user selects a suggestion
-  const selectSuggestion = (suggestion: PhotonSuggestion) => {
+  const selectSuggestion = async (suggestion: PhotonSuggestion) => {
     setShowSuggestions(false);
     setSuggestions([]);
     setSearchText('');
-    lastSearchedNumber.current = suggestion.houseNumber || null;
+    setSearching(true);
 
-    // Move map
-    webviewRef.current?.injectJavaScript(`
-      isProgrammaticMove = true;
-      map.setView([${suggestion.lat}, ${suggestion.lng}], 17, { animate: false });
-      true;
-    `);
-    onLocationSelect(suggestion.lat, suggestion.lng);
-    setResolvedAddress(suggestion.label);
-    onAddressResolved?.(suggestion.label);
-    lastSearchTime.current = Date.now();
+    try {
+      if (suggestion.place_id) {
+        const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&fields=geometry&key=${GOOGLE_API_KEY}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data && data.result && data.result.geometry) {
+           const lat = data.result.geometry.location.lat;
+           const lng = data.result.geometry.location.lng;
+           webviewRef.current?.injectJavaScript(`
+             isProgrammaticMove = true;
+             map.setView([${lat}, ${lng}], 17, { animate: false });
+             true;
+           `);
+           onLocationSelect(lat, lng);
+        }
+      }
+      setResolvedAddress(suggestion.label);
+      onAddressResolved?.(suggestion.label);
+      lastSearchTime.current = Date.now();
+    } catch (e) {
+      console.error("Geocoding fetch error:", e);
+    } finally {
+      setSearching(false);
+    }
   };
 
   const handleLocateMe = async () => {
@@ -160,38 +164,34 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
       const userNumber = matchNumber ? matchNumber[0] : null;
       lastSearchedNumber.current = userNumber;
 
-      const latBias = initialLocation?.lat || -24.7821;
-      const lngBias = initialLocation?.lng || -65.4232;
-      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query + ', Salta, Argentina')}&limit=5&lang=es&lat=${latBias}&lon=${lngBias}`;
-
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&language=es&components=country:ar&key=${GOOGLE_API_KEY}`;
       const res = await fetch(url);
       const data = await res.json();
-
-      if (data && data.features && data.features.length > 0) {
-        const f = data.features[0];
-        const props = f.properties || {};
-        const coords = f.geometry?.coordinates || [lngBias, latBias];
-        const newLat = coords[1];
-        const newLng = coords[0];
-        let finalAddress = buildLabel(props, userNumber);
-
-        // Force number if still missing
-        if (userNumber && !finalAddress.includes(userNumber)) {
-          const parts = finalAddress.split(', ');
-          parts[0] = `${parts[0]} ${userNumber}`;
-          finalAddress = parts.join(', ');
+      
+      if (data && data.predictions && data.predictions.length > 0) {
+        const placeId = data.predictions[0].place_id;
+        const finalAddress = data.predictions[0].description;
+        
+        const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry&key=${GOOGLE_API_KEY}`;
+        const detailsRes = await fetch(detailsUrl);
+        const detailsData = await detailsRes.json();
+        
+        if (detailsData && detailsData.result && detailsData.result.geometry) {
+           const newLat = detailsData.result.geometry.location.lat;
+           const newLng = detailsData.result.geometry.location.lng;
+           
+           webviewRef.current?.injectJavaScript(`
+             isProgrammaticMove = true;
+             map.setView([${newLat}, ${newLng}], 17, { animate: false });
+             true;
+           `);
+           onLocationSelect(newLat, newLng);
+           setResolvedAddress(finalAddress);
+           onAddressResolved?.(finalAddress);
+           lastSearchTime.current = Date.now();
         }
-
-        webviewRef.current?.injectJavaScript(`
-          isProgrammaticMove = true;
-          map.setView([${newLat}, ${newLng}], 17, { animate: false });
-          true;
-        `);
-        onLocationSelect(newLat, newLng);
-        setResolvedAddress(finalAddress);
-        onAddressResolved?.(finalAddress);
-        lastSearchTime.current = Date.now();
       } else {
+
         // Fallback: try Nominatim
         const headers = { 'Accept-Language': 'es', 'User-Agent': 'MinisuperCatalogo/1.0 (akilerosas@gmail.com)' };
         const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&limit=1&addressdetails=1`;
@@ -201,20 +201,8 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
           const { lat, lon, address } = nomResults[0];
           const newLat = parseFloat(lat);
           const newLng = parseFloat(lon);
-          let finalAddress = buildLabel({
-            street: address?.road || '',
-            housenumber: address?.house_number || '',
-            district: address?.suburb || '',
-            city: address?.city || address?.town || '',
-            state: address?.state || '',
-            postcode: address?.postcode || '',
-          }, userNumber);
-
-          if (userNumber && !finalAddress.includes(userNumber)) {
-            const parts = finalAddress.split(', ');
-            parts[0] = `${parts[0]} ${userNumber}`;
-            finalAddress = parts.join(', ');
-          }
+          
+          let finalAddress = query; // Use exactly what they searched since we found it
 
           webviewRef.current?.injectJavaScript(`
             isProgrammaticMove = true;
@@ -232,7 +220,6 @@ const LocationPickerMap: React.FC<LocationPickerProps> = ({
             Alert.alert('No encontrado', 'No se encontró la dirección. Probá con más detalle.');
           }
         }
-      }
     } catch (e) {
       console.error('Geocoding error:', e);
     } finally {
