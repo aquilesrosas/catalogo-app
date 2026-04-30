@@ -107,6 +107,18 @@ export default function OrdersScreen() {
                         </Text>
                     </View>
                     <View style={styles.totalContainer}>
+                        {Number(item.points_discount || 0) > 0 && (
+                            <>
+                                <Text style={styles.subtotalStrike}>
+                                    ${(parseFloat(item.total) + parseFloat(item.points_discount)).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+                                </Text>
+                                <View style={styles.discountBadge}>
+                                    <Text style={styles.discountText}>
+                                        ⭐ -{item.points_redeemed} pts (-${parseFloat(item.points_discount).toLocaleString('es-AR', { minimumFractionDigits: 0 })})
+                                    </Text>
+                                </View>
+                            </>
+                        )}
                         <Text style={styles.totalLabel}>Total</Text>
                         <Text style={styles.totalValue}>
                             ${parseFloat(item.total).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
@@ -247,6 +259,24 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: '900',
         color: '#1B5E20',
+    },
+    subtotalStrike: {
+        fontSize: 13,
+        color: '#999',
+        textDecorationLine: 'line-through',
+        textAlign: 'right',
+    },
+    discountBadge: {
+        backgroundColor: '#FFF8E1',
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        marginBottom: 4,
+    },
+    discountText: {
+        fontSize: 11,
+        color: '#F59E0B',
+        fontWeight: '700',
     },
     emptyContainer: {
         flex: 1,
