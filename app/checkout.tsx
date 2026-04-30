@@ -25,7 +25,7 @@ type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO' | 'MERCADOPAGO';
 
 export default function CheckoutScreen() {
     const { items, getTotal, clearCart } = useCartStore();
-    const { isLoggedIn, clientName, clientPhone } = useAuthStore();
+    const { isLoggedIn, clientName, clientPhone, clientPoints, setPoints } = useAuthStore();
     const router = useRouter();
     const logged = isLoggedIn();
 
@@ -63,6 +63,15 @@ export default function CheckoutScreen() {
     const [transferHolder, setTransferHolder] = useState('');
     const [whatsappPhone, setWhatsappPhone] = useState('');
     const [copiedField, setCopiedField] = useState<string | null>(null);
+
+    // ─── Points Redemption State ───
+    const [loyaltyConfig, setLoyaltyConfig] = useState<{
+        is_active: boolean;
+        currency_per_point: number;
+        min_points_to_redeem: number;
+    } | null>(null);
+    const [pointsToRedeem, setPointsToRedeem] = useState(0);
+    const [usePoints, setUsePoints] = useState(false);
 
     // Fetch slots when date changes or isScheduled toggles
     useEffect(() => {
@@ -136,6 +145,38 @@ export default function CheckoutScreen() {
 
     const total = getTotal();
 
+    // Fetch loyalty config
+    useEffect(() => {
+        if (!logged) return;
+        (async () => {
+            try {
+                const { getProfile } = await import('@/services/api');
+                const profile = await getProfile();
+                if (profile?.points !== undefined) {
+                    setPoints(profile.points);
+                }
+                if (profile?.loyalty_config) {
+                    setLoyaltyConfig(profile.loyalty_config);
+                }
+            } catch { }
+        })();
+    }, [logged]);
+
+    // Points discount calculation
+    const maxRedeemablePoints = loyaltyConfig
+        ? Math.min(
+            clientPoints,
+            Math.floor(total / loyaltyConfig.currency_per_point)
+          )
+        : 0;
+    const pointsDiscount = usePoints && loyaltyConfig
+        ? pointsToRedeem * loyaltyConfig.currency_per_point
+        : 0;
+    const finalTotal = Math.max(0, total - pointsDiscount);
+    const canRedeem = loyaltyConfig?.is_active
+        && clientPoints >= (loyaltyConfig?.min_points_to_redeem || 0)
+        && total > 0;
+
     // Cross-platform alert that works on web
     const showAlert = (title: string, message: string, onOk?: () => void) => {
         if (Platform.OS === 'web') {
@@ -203,6 +244,7 @@ export default function CheckoutScreen() {
                 items: orderItems,
                 payment_method: paymentMethod,
                 notes: notes.trim(),
+                points_to_redeem: usePoints ? pointsToRedeem : 0,
             };
 
             if (isScheduled && selectedSlot) {
@@ -714,6 +756,68 @@ export default function CheckoutScreen() {
                     )}
                 </View>
 
+                {/* ── Points Redemption ── */}
+                {logged && canRedeem && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>⭐ Canjear Puntos</Text>
+                        <View style={styles.pointsCard}>
+                            <View style={styles.pointsCardHeader}>
+                                <Text style={styles.pointsBalance}>
+                                    Tenés <Text style={styles.pointsHighlight}>{clientPoints}</Text> puntos
+                                </Text>
+                                <Text style={styles.pointsEquiv}>
+                                    = hasta {formatPrice(maxRedeemablePoints * (loyaltyConfig?.currency_per_point || 0))} de descuento
+                                </Text>
+                            </View>
+
+                            <Pressable
+                                style={[styles.togglePoints, usePoints && styles.togglePointsActive]}
+                                onPress={() => {
+                                    setUsePoints(!usePoints);
+                                    if (!usePoints) {
+                                        setPointsToRedeem(maxRedeemablePoints);
+                                    } else {
+                                        setPointsToRedeem(0);
+                                    }
+                                }}
+                            >
+                                <Text style={styles.togglePointsText}>
+                                    {usePoints ? '✅ Usando puntos' : 'Usar mis puntos'}
+                                </Text>
+                            </Pressable>
+
+                            {usePoints && (
+                                <View style={styles.pointsInputArea}>
+                                    <Text style={styles.pointsInputLabel}>Puntos a usar:</Text>
+                                    <TextInput
+                                        style={styles.pointsInput}
+                                        value={String(pointsToRedeem)}
+                                        onChangeText={(v) => {
+                                            const num = parseInt(v) || 0;
+                                            setPointsToRedeem(Math.min(num, maxRedeemablePoints));
+                                        }}
+                                        keyboardType="numeric"
+                                        selectTextOnFocus
+                                    />
+                                    <Text style={styles.pointsMaxHint}>
+                                        Máx: {maxRedeemablePoints} puntos
+                                    </Text>
+                                    {pointsDiscount > 0 && (
+                                        <View style={styles.discountPreview}>
+                                            <Text style={styles.discountText}>
+                                                🎁 Descuento: -{formatPrice(pointsDiscount)}
+                                            </Text>
+                                            <Text style={styles.newTotalText}>
+                                                Nuevo total: {formatPrice(finalTotal)}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                )}
+
                 {/* Notes */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>📝 Notas (opcional)</Text>
@@ -738,7 +842,7 @@ export default function CheckoutScreen() {
                         <ActivityIndicator color="#fff" />
                     ) : (
                         <Text style={styles.submitBtnText}>
-                            🛒 Enviar pedido · {formatPrice(total)}
+                            🛒 Enviar pedido · {formatPrice(finalTotal)}
                         </Text>
                     )}
                 </Pressable>
@@ -1264,5 +1368,93 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '700',
         fontSize: 14,
+    },
+    // ─── Points Redemption ───
+    pointsCard: {
+        backgroundColor: '#FFF8E1',
+        borderRadius: 14,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#FFD54F',
+    },
+    pointsCardHeader: {
+        marginBottom: 12,
+    },
+    pointsBalance: {
+        fontSize: 16,
+        color: '#5D4037',
+        fontWeight: '600',
+    },
+    pointsHighlight: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: '#F57F17',
+    },
+    pointsEquiv: {
+        fontSize: 13,
+        color: '#795548',
+        marginTop: 2,
+    },
+    togglePoints: {
+        backgroundColor: '#fff',
+        borderWidth: 2,
+        borderColor: '#FFD54F',
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    togglePointsActive: {
+        backgroundColor: '#FFF176',
+        borderColor: '#F57F17',
+    },
+    togglePointsText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#5D4037',
+    },
+    pointsInputArea: {
+        marginTop: 12,
+    },
+    pointsInputLabel: {
+        fontSize: 13,
+        color: '#795548',
+        fontWeight: '600',
+        marginBottom: 6,
+    },
+    pointsInput: {
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#FFD54F',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#F57F17',
+        textAlign: 'center',
+    },
+    pointsMaxHint: {
+        fontSize: 11,
+        color: '#999',
+        textAlign: 'center',
+        marginTop: 4,
+    },
+    discountPreview: {
+        backgroundColor: '#E8F5E9',
+        borderRadius: 10,
+        padding: 12,
+        marginTop: 10,
+        alignItems: 'center',
+    },
+    discountText: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#2E7D32',
+    },
+    newTotalText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1B5E20',
+        marginTop: 4,
     },
 });
