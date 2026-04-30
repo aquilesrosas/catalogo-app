@@ -323,8 +323,8 @@ export default function KioskScreen() {
         setBuilderNotes('');
         setSelectedExtras([]);
         
-        // Navigate to the cart as requested
-        router.push('/cart');
+        // El usuario pidió no redirigir al carrito automáticamente para seguir comprando
+        // router.push('/cart');
     };
 
     const toggleExtra = (extra: any) => {
@@ -652,6 +652,12 @@ export default function KioskScreen() {
                                 <Text style={s.builderPrice}>
                                     {formatPrice(store.builderProduct.price || store.builderProduct.precio_venta)}
                                 </Text>
+                                
+                                {store.builderProduct.descripcion && (
+                                    <Text style={{ color: '#aaa', fontSize: 14, marginBottom: 16, lineHeight: 20 }}>
+                                        {store.builderProduct.descripcion}
+                                    </Text>
+                                )}
 
                                 {/* Notes */}
                                 <Text style={s.sectionLabel}>Notas / Personalización</Text>
