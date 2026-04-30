@@ -8,6 +8,7 @@ import {
     Text,
     Pressable,
     Linking,
+    Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCatalogStore } from '@/stores/catalogStore';
@@ -19,6 +20,8 @@ import CategoryChips from '@/components/CategoryChips';
 import SearchBar from '@/components/SearchBar';
 import EmptyState from '@/components/EmptyState';
 import { SkeletonGrid } from '@/components/ProductSkeleton';
+import { useCartStore } from '@/stores/cartStore';
+import { formatPrice } from '@/utils/format';
 
 export default function HomeScreen() {
     const {
@@ -37,12 +40,20 @@ export default function HomeScreen() {
         setSearch,
         refresh,
     } = useCatalogStore();
-    const { isLoggedIn, clientPoints, setPoints } = useAuthStore();
+    const { 
+        isLoggedIn, 
+        clientPoints, 
+        loyaltyConfig, 
+        setPoints, 
+        setLoyaltyConfig 
+    } = useAuthStore();
     const router = useRouter();
     const params = useLocalSearchParams();
     const kioskTitle = useConfigStore((s) => s.kioskTitle);
     const slug = useConfigStore((s) => s.tenantSlug);
+    const { items: cartItems, getItemCount, getTotal } = useCartStore();
     const [bannerDismissed, setBannerDismissed] = useState(false);
+    const [pointsModalVisible, setPointsModalVisible] = useState(false);
     const showBanner = !isLoggedIn() && !bannerDismissed;
 
     // Sync puntos del perfil al montar y al refrescar
@@ -104,17 +115,21 @@ export default function HomeScreen() {
             {/* PUNTOS + MIS PEDIDOS (solo si logueado) */}
             {isLoggedIn() && (
                 <View style={styles.loyaltyRow}>
-                    <View style={styles.pointsBadge}>
+                    <Pressable 
+                        style={styles.pointsBadge}
+                        onPress={() => setPointsModalVisible(true)}
+                    >
                         <Text style={styles.pointsIcon}>⭐</Text>
                         <View>
                             <Text style={styles.pointsValue}>{clientPoints} puntos</Text>
                             <Text style={styles.pointsHint}>
-                                {clientPoints >= 100
+                                {loyaltyConfig && clientPoints >= loyaltyConfig.min_points_to_redeem
                                     ? '🎁 ¡Canjeá tus puntos!'
-                                    : `Faltan ${100 - clientPoints} para un beneficio`}
+                                    : `Faltan para un beneficio`}
                             </Text>
                         </View>
-                    </View>
+                        <Text style={styles.infoIcon}>ⓘ</Text>
+                    </Pressable>
                     <Pressable
                         style={styles.ordersBtn}
                         onPress={() => router.push('/orders')}
@@ -232,6 +247,69 @@ export default function HomeScreen() {
                 maxToRenderPerBatch={8}
                 windowSize={5}
             />
+
+            {/* ─── Floating Cart Bar ─────── */}
+            {cartItems.length > 0 && (
+                <View style={styles.cartBar}>
+                    <View style={styles.cartBarLeft}>
+                        <View style={styles.cartBadge}>
+                            <Text style={styles.cartBadgeText}>{getItemCount()}</Text>
+                        </View>
+                        <View>
+                            <Text style={styles.cartBarTitle}>Tu Carrito</Text>
+                            <Text style={styles.cartBarTotal}>{formatPrice(getTotal())}</Text>
+                        </View>
+                    </View>
+                    <Pressable
+                        style={styles.payBtn}
+                        onPress={() => router.push('/cart')}
+                    >
+                        <Text style={styles.payBtnText}>Ver Carrito</Text>
+                    </Pressable>
+                </View>
+            )}
+
+            {/* Modal Info Puntos */}
+            <Modal
+                visible={pointsModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setPointsModalVisible(false)}
+            >
+                <Pressable 
+                    style={styles.modalOverlay} 
+                    onPress={() => setPointsModalVisible(false)}
+                >
+                    <View style={styles.pointsModalContent}>
+                        <Text style={styles.modalEmoji}>⭐</Text>
+                        <Text style={styles.modalTitle}>Tus Puntos de Fidelidad</Text>
+                        
+                        <View style={styles.pointsDetailCard}>
+                            <Text style={styles.pointsDetailLabel}>Saldo actual</Text>
+                            <Text style={styles.pointsDetailValue}>{clientPoints} pts</Text>
+                        </View>
+
+                        <Text style={styles.modalText}>
+                            {loyaltyConfig?.is_active ? (
+                                <>
+                                    Cada punto equivale a <Text style={styles.bold}>{formatPrice(loyaltyConfig.currency_per_point)}</Text> de descuento.
+                                    {"\n\n"}
+                                    Podés empezar a canjear cuando alcances los <Text style={styles.bold}>{loyaltyConfig.min_points_to_redeem} puntos</Text>.
+                                </>
+                            ) : (
+                                "El programa de puntos está activo. ¡Sumá puntos con cada compra!"
+                            )}
+                        </Text>
+
+                        <Pressable 
+                            style={styles.modalCloseBtn}
+                            onPress={() => setPointsModalVisible(false)}
+                        >
+                            <Text style={styles.modalCloseBtnText}>Entendido</Text>
+                        </Pressable>
+                    </View>
+                </Pressable>
+            </Modal>
 
             {/* FAB BOT IA */}
             <Pressable
@@ -489,5 +567,138 @@ const styles = StyleSheet.create({
     },
     fabIcon: {
         fontSize: 30,
+    },
+    // ─── Floating Cart Bar ───
+    cartBar: {
+        position: 'absolute',
+        bottom: 90,
+        left: 16,
+        right: 16,
+        backgroundColor: '#1B5E20',
+        borderRadius: 16,
+        padding: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        shadowColor: '#1B5E20',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        elevation: 10,
+    },
+    cartBarLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    cartBadge: {
+        backgroundColor: '#fff',
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cartBadgeText: {
+        color: '#1B5E20',
+        fontSize: 12,
+        fontWeight: '900',
+    },
+    cartBarTitle: {
+        color: '#A5D6A7',
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+    },
+    cartBarTotal: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '800',
+    },
+    payBtn: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    payBtnText: {
+        color: '#1B5E20',
+        fontWeight: '800',
+        fontSize: 14,
+    },
+    // ─── Modal Puntos ───
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    pointsModalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 24,
+        width: '100%',
+        maxWidth: 340,
+        alignItems: 'center',
+    },
+    modalEmoji: {
+        fontSize: 48,
+        marginBottom: 12,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#1a1a1a',
+        marginBottom: 20,
+    },
+    pointsDetailCard: {
+        backgroundColor: '#F1F8E9',
+        borderRadius: 16,
+        padding: 16,
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    pointsDetailLabel: {
+        fontSize: 14,
+        color: '#558B2F',
+        fontWeight: '600',
+    },
+    pointsDetailValue: {
+        fontSize: 24,
+        fontWeight: '900',
+        color: '#2E7D32',
+    },
+    modalText: {
+        fontSize: 15,
+        color: '#444',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    bold: {
+        fontWeight: '800',
+        color: '#1a1a1a',
+    },
+    modalCloseBtn: {
+        backgroundColor: '#1B5E20',
+        paddingVertical: 14,
+        paddingHorizontal: 32,
+        borderRadius: 14,
+        width: '100%',
+        alignItems: 'center',
+    },
+    modalCloseBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    infoIcon: {
+        fontSize: 18,
+        color: '#aaa',
+        marginLeft: 8,
     },
 });

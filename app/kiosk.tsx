@@ -99,6 +99,9 @@ export default function KioskScreen() {
     const [builderNotes, setBuilderNotes] = useState('');
     const [selectedExtras, setSelectedExtras] = useState<any[]>([]);
     const addItemToGlobalCart = useCartStore((s) => s.addItem);
+    const globalCartItems = useCartStore((s) => s.items);
+    const getGlobalCartCount = useCartStore((s) => s.getItemCount);
+    const getGlobalCartTotal = useCartStore((s) => s.getTotal);
 
     // Checkout local state
     const [identityQuery, setIdentityQuery] = useState('');
@@ -367,10 +370,10 @@ export default function KioskScreen() {
                 tipo_entrega: store.kioskId ? 'MESA' : 'LOCAL',
                 kiosk_id: store.kioskId || 'local-kiosco',
                 payment_method: paymentType,
-                items: store.cart.map((item) => ({
+                items: globalCartItems.map((item) => ({
                     product_id: item.product.id_producto,
                     quantity: item.quantity,
-                    notes: item.notes || undefined,
+                    notes: item.description || undefined,
                 })),
             };
             if (store.selectedClient && store.selectedClient.id) {
@@ -615,22 +618,22 @@ export default function KioskScreen() {
             />
 
             {/* ─── Floating Cart Bar ─────── */}
-            {store.cart.length > 0 && (
+            {globalCartItems.length > 0 && (
                 <View style={s.cartBar}>
                     <View style={s.cartBarLeft}>
                         <View style={s.cartBadge}>
-                            <Text style={s.cartBadgeText}>{store.getCartCount()}</Text>
+                            <Text style={s.cartBadgeText}>{getGlobalCartCount()}</Text>
                         </View>
                         <View>
                             <Text style={s.cartBarTitle}>Tu Pedido</Text>
-                            <Text style={s.cartBarTotal}>{formatPrice(store.getCartTotal())}</Text>
+                            <Text style={s.cartBarTotal}>{formatPrice(getGlobalCartTotal())}</Text>
                         </View>
                     </View>
                     <Pressable
                         style={s.payBtn}
-                        onPress={() => { store.touchInteraction(); handleStartCheckout(); }}
+                        onPress={() => { store.touchInteraction(); router.push('/cart'); }}
                     >
-                        <Text style={s.payBtnText}>Pagar Ahora</Text>
+                        <Text style={s.payBtnText}>Ver Carrito</Text>
                     </Pressable>
                 </View>
             )}

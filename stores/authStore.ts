@@ -8,6 +8,11 @@ interface AuthState {
     clientPhone: string | null;
     clientId: number | null;
     clientPoints: number;
+    loyaltyConfig: {
+        is_active: boolean;
+        currency_per_point: number;
+        min_points_to_redeem: number;
+    } | null;
 
     // Computed
     isLoggedIn: () => boolean;
@@ -17,6 +22,7 @@ interface AuthState {
     logout: () => void;
     setName: (name: string) => void;
     setPoints: (points: number) => void;
+    setLoyaltyConfig: (config: any) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -27,6 +33,7 @@ export const useAuthStore = create<AuthState>()(
             clientPhone: null,
             clientId: null,
             clientPoints: 0,
+            loyaltyConfig: null,
 
             isLoggedIn: () => !!get().token,
 
@@ -38,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
 
             setName: (name) => set({ clientName: name }),
             setPoints: (points) => set({ clientPoints: points }),
+            setLoyaltyConfig: (config) => set({ loyaltyConfig: config }),
         }),
         {
             name: 'catalogo-auth',
