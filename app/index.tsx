@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
     FlatList,
@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCatalogStore } from '@/stores/catalogStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useConfigStore } from '@/stores/configStore';
+import { getProfile } from '@/services/api';
 import ProductCard from '@/components/ProductCard';
 import CategoryChips from '@/components/CategoryChips';
 import SearchBar from '@/components/SearchBar';
@@ -36,13 +37,28 @@ export default function HomeScreen() {
         setSearch,
         refresh,
     } = useCatalogStore();
-    const { isLoggedIn } = useAuthStore();
+    const { isLoggedIn, clientPoints, setPoints } = useAuthStore();
     const router = useRouter();
     const params = useLocalSearchParams();
     const kioskTitle = useConfigStore((s) => s.kioskTitle);
     const slug = useConfigStore((s) => s.tenantSlug);
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const showBanner = !isLoggedIn() && !bannerDismissed;
+
+    // Sync puntos del perfil al montar y al refrescar
+    const syncProfile = useCallback(async () => {
+        if (!isLoggedIn()) return;
+        try {
+            const profile = await getProfile();
+            if (profile?.points !== undefined) {
+                setPoints(profile.points);
+            }
+        } catch { /* no-op if not logged in or network error */ }
+    }, [isLoggedIn()]);
+
+    useEffect(() => {
+        syncProfile();
+    }, [syncProfile]);
 
     useEffect(() => {
         // Table Ordering QR redirect
@@ -84,6 +100,30 @@ export default function HomeScreen() {
                     <Text style={styles.heroEmoji}>🍔🍕</Text>
                 </View>
             </View>
+
+            {/* PUNTOS + MIS PEDIDOS (solo si logueado) */}
+            {isLoggedIn() && (
+                <View style={styles.loyaltyRow}>
+                    <View style={styles.pointsBadge}>
+                        <Text style={styles.pointsIcon}>⭐</Text>
+                        <View>
+                            <Text style={styles.pointsValue}>{clientPoints} puntos</Text>
+                            <Text style={styles.pointsHint}>
+                                {clientPoints >= 100
+                                    ? '🎁 ¡Canjeá tus puntos!'
+                                    : `Faltan ${100 - clientPoints} para un beneficio`}
+                            </Text>
+                        </View>
+                    </View>
+                    <Pressable
+                        style={styles.ordersBtn}
+                        onPress={() => router.push('/orders')}
+                    >
+                        <Text style={styles.ordersBtnIcon}>📋</Text>
+                        <Text style={styles.ordersBtnText}>Mis Pedidos</Text>
+                    </Pressable>
+                </View>
+            )}
 
             {/* MODULO PEDIR COMIDA (Kiosk) */}
             <Pressable
@@ -183,7 +223,7 @@ export default function HomeScreen() {
                 refreshControl={
                     <RefreshControl
                         refreshing={loading && products.length > 0}
-                        onRefresh={refresh}
+                        onRefresh={() => { refresh(); syncProfile(); }}
                         colors={['#FFC107']}
                         tintColor="#FFC107"
                     />
@@ -325,6 +365,58 @@ const styles = StyleSheet.create({
     headerWrapper: {
         backgroundColor: '#FAFAFA',
         paddingTop: 8,
+    },
+    // ─── Loyalty Row ───
+    loyaltyRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 16,
+        marginTop: 10,
+        marginBottom: 4,
+        gap: 10,
+    },
+    pointsBadge: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF8E1',
+        borderRadius: 14,
+        padding: 12,
+        gap: 10,
+        borderWidth: 1,
+        borderColor: '#FFD54F',
+    },
+    pointsIcon: {
+        fontSize: 28,
+    },
+    pointsValue: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#F57F17',
+    },
+    pointsHint: {
+        fontSize: 11,
+        color: '#795548',
+        marginTop: 1,
+    },
+    ordersBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#E8F5E9',
+        borderRadius: 14,
+        paddingVertical: 14,
+        paddingHorizontal: 14,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: '#A5D6A7',
+    },
+    ordersBtnIcon: {
+        fontSize: 20,
+    },
+    ordersBtnText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#1B5E20',
     },
     heroBanner: {
         marginHorizontal: 16,

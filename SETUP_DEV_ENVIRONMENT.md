@@ -244,7 +244,7 @@ Acceder en `http://localhost:8080`.
 ---
 
 ## 14. Identificadores de la App
-
+    
 ```
 Package Android:  com.facilgestion.catalogo
 Bundle iOS:       com.facilgestion.catalogo
