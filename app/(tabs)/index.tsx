@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     View,
     FlatList,
@@ -11,6 +11,7 @@ import {
     Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCatalogStore } from '@/stores/catalogStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useConfigStore } from '@/stores/configStore';
@@ -55,6 +56,16 @@ export default function HomeScreen() {
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const [pointsModalVisible, setPointsModalVisible] = useState(false);
     const showBanner = !isLoggedIn() && !bannerDismissed;
+    const insets = useSafeAreaInsets();
+
+    // Sort products: in-stock first, out-of-stock last
+    const sortedProducts = useMemo(() => {
+        return [...products].sort((a, b) => {
+            const aStock = (a as any).stock_actual > 0 ? 0 : 1;
+            const bStock = (b as any).stock_actual > 0 ? 0 : 1;
+            return aStock - bStock;
+        });
+    }, [products]);
 
     // Sync puntos del perfil al montar y al refrescar
     const syncProfile = useCallback(async () => {
@@ -222,12 +233,12 @@ export default function HomeScreen() {
     return (
         <View style={styles.container}>
             <FlatList
-                data={products}
+                data={sortedProducts}
                 keyExtractor={(item) => item.id_producto.toString()}
                 renderItem={({ item }) => <ProductCard product={item} />}
                 numColumns={2}
                 columnWrapperStyle={styles.row}
-                contentContainerStyle={styles.list}
+                contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 80 }]}
                 ListHeaderComponent={renderHeader}
                 ListEmptyComponent={renderEmpty}
                 ListFooterComponent={renderFooter}
@@ -250,7 +261,7 @@ export default function HomeScreen() {
 
             {/* ─── Floating Cart Bar ─────── */}
             {cartItems.length > 0 && (
-                <View style={styles.cartBar}>
+                <View style={[styles.cartBar, { bottom: insets.bottom + 70 }]}>
                     <View style={styles.cartBarLeft}>
                         <View style={styles.cartBadge}>
                             <Text style={styles.cartBadgeText}>{getItemCount()}</Text>
@@ -562,7 +573,6 @@ const styles = StyleSheet.create({
     // ─── Floating Cart Bar ───
     cartBar: {
         position: 'absolute',
-        bottom: 16,
         left: 16,
         right: 16,
         backgroundColor: '#1B5E20',

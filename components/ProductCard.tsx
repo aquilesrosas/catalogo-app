@@ -42,7 +42,13 @@ function ProductCard({ product }: ProductCardProps) {
                 ]}
                 onPress={() => router.push(`/product/${product.id_producto}`)}
             >
-                {!product.in_stock && <View style={styles.outOfStockOverlay} />}
+                {!product.in_stock && (
+                    <View style={styles.outOfStockOverlay}>
+                        <View style={styles.agotadoBadge}>
+                            <Text style={styles.agotadoText}>Agotado</Text>
+                        </View>
+                    </View>
+                )}
 
                 <View style={styles.imageContainer}>
                     {product.image_url ? (
@@ -126,9 +132,24 @@ const styles = StyleSheet.create({
     },
     outOfStockOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.45)',
+        backgroundColor: 'rgba(255,255,255,0.55)',
         zIndex: 10,
         borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    agotadoBadge: {
+        backgroundColor: 'rgba(0,0,0,0.65)',
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    agotadoText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     imageContainer: {
         width: '100%',

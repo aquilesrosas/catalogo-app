@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -8,9 +9,10 @@ import { useAuthStore } from '@/stores/authStore';
 function CustomTabBar({ state, descriptors, navigation }: any) {
     const count = useCartStore((s) => s.getItemCount());
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
     return (
-        <View style={tabBarStyles.container}>
+        <View style={[tabBarStyles.container, { paddingBottom: insets.bottom }]}>
             <View style={tabBarStyles.bar}>
                 {state.routes.map((route: any, index: number) => {
                     const { options } = descriptors[route.key];
@@ -168,7 +170,6 @@ const tabBarStyles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopWidth: 1,
         borderTopColor: '#F0F0F0',
-        paddingBottom: Platform.OS === 'ios' ? 20 : 8,
         paddingTop: 6,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -2 },
