@@ -3,94 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter, useSegments, Redirect } from 'expo-router';
-import { useCartStore } from '@/stores/cartStore';
-import { useAuthStore } from '@/stores/authStore';
 import { useConfigStore } from '@/stores/configStore';
-
-// ─── Cart Badge ──────────────────────────────
-function CartBadge() {
-    const count = useCartStore((s) => s.getItemCount());
-    const router = useRouter();
-
-    return (
-        <Pressable onPress={() => router.push('/cart')} style={headerStyles.cartBtn}>
-            <Text style={headerStyles.cartIcon}>🛒</Text>
-            {count > 0 && (
-                <View style={headerStyles.badge}>
-                    <Text style={headerStyles.badgeText}>
-                        {count > 99 ? '99+' : count}
-                    </Text>
-                </View>
-            )}
-        </Pressable>
-    );
-}
-
-// ─── Profile Button ──────────────────────────
-function ProfileButton() {
-    const { isLoggedIn, clientName } = useAuthStore();
-    const router = useRouter();
-    const initial = isLoggedIn() && clientName ? clientName[0].toUpperCase() : null;
-
-    return (
-        <Pressable onPress={() => router.push('/login')} style={headerStyles.profileBtn}>
-            {initial ? (
-                <View style={headerStyles.profileCircle}>
-                    <Text style={headerStyles.profileInitial}>{initial}</Text>
-                </View>
-            ) : (
-                <Text style={headerStyles.profileIcon}>👤</Text>
-            )}
-        </Pressable>
-    );
-}
-
-const headerStyles = StyleSheet.create({
-    cartBtn: {
-        paddingRight: 8,
-        position: 'relative',
-    },
-    cartIcon: {
-        fontSize: 22,
-    },
-    badge: {
-        position: 'absolute',
-        top: -6,
-        right: 0,
-        backgroundColor: '#FF5722',
-        borderRadius: 10,
-        minWidth: 20,
-        height: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 4,
-    },
-    badgeText: {
-        color: '#fff',
-        fontSize: 11,
-        fontWeight: '800',
-    },
-    profileBtn: {
-        paddingLeft: 6,
-        paddingRight: 4,
-    },
-    profileCircle: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: '#fff',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    profileInitial: {
-        color: '#1B5E20',
-        fontSize: 15,
-        fontWeight: '800',
-    },
-    profileIcon: {
-        fontSize: 20,
-    },
-});
 
 // ─── Error Boundary ──────────────────────────
 class ErrorBoundary extends React.Component<
@@ -155,7 +68,7 @@ const errorStyles = StyleSheet.create({
 function HydrationLoading() {
     return (
         <View style={hydrationStyles.container}>
-            <ActivityIndicator size="large" color="#1B5E20" />
+            <ActivityIndicator size="large" color="#fff" />
             <Text style={hydrationStyles.text}>Cargando...</Text>
         </View>
     );
@@ -236,16 +149,20 @@ function RootLayoutContent() {
                         animation: 'none',
                     }}
                 />
+                {/* ── Bottom Tabs Group ── */}
                 <Stack.Screen
-                    name="index"
+                    name="(tabs)"
                     options={{
-                        title: 'Catálogo',
-                        headerRight: () => (
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <CartBadge />
-                                <ProfileButton />
-                            </View>
-                        ),
+                        headerShown: false,
+                        animation: 'none',
+                    }}
+                />
+                {/* ── Modal Screens (outside tabs) ── */}
+                <Stack.Screen
+                    name="store"
+                    options={{
+                        title: 'Nuestro Local',
+                        headerBackTitle: 'Volver',
                     }}
                 />
                 <Stack.Screen
@@ -253,7 +170,6 @@ function RootLayoutContent() {
                     options={{
                         title: 'Detalle',
                         headerBackTitle: 'Volver',
-                        headerRight: () => <CartBadge />,
                     }}
                 />
                 <Stack.Screen
@@ -261,6 +177,7 @@ function RootLayoutContent() {
                     options={{
                         title: '🛒 Carrito',
                         headerBackTitle: 'Volver',
+                        presentation: 'modal',
                     }}
                 />
                 <Stack.Screen
@@ -271,31 +188,11 @@ function RootLayoutContent() {
                     }}
                 />
                 <Stack.Screen
-                    name="orders"
-                    options={{
-                        title: 'Mis Pedidos',
-                        headerBackTitle: 'Volver',
-                    }}
-                />
-                <Stack.Screen
-                    name="ofertas"
-                    options={{
-                        headerShown: false,
-                    }}
-                />
-                <Stack.Screen
-                    name="login"
-                    options={{
-                        title: 'Mi cuenta',
-                        headerBackTitle: 'Volver',
-                    }}
-                />
-                <Stack.Screen
                     name="chat"
                     options={{
                         headerShown: true,
                         title: '🤖 Asesor Virtual',
-                        headerBackTitle: 'Catálogo',
+                        headerBackTitle: 'Volver',
                     }}
                 />
                 <Stack.Screen
@@ -323,12 +220,12 @@ function RootLayoutContent() {
 const fabStyles = StyleSheet.create({
     fabContainer: {
         position: 'absolute',
-        bottom: 24,
-        right: 24,
+        bottom: 90,
+        right: 20,
         backgroundColor: '#2E7D32',
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: 52,
+        height: 52,
+        borderRadius: 26,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
@@ -338,6 +235,6 @@ const fabStyles = StyleSheet.create({
         elevation: 8,
     },
     fabIcon: {
-        fontSize: 30,
+        fontSize: 26,
     },
 });

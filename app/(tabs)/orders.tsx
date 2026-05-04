@@ -7,7 +7,7 @@ import {
     ActivityIndicator,
     RefreshControl,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { getUserOrders } from '@/services/api';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -66,6 +66,40 @@ export default function OrdersScreen() {
         return STATUS_CONFIG[status] || { color: '#757575', bg: '#F5F5F5', label: status };
     };
 
+    const OrderProgressTracker = ({ status }: { status: string }) => {
+        if (['RECHAZADO', 'CANCELADO'].includes(status)) return null;
+
+        const steps = ['ACEPTADO', 'PREPARANDO', 'EN CAMINO', 'ENTREGADO'];
+        let currentIndex = 0;
+        if (['NUEVO', 'PENDIENTE', 'ACEPTADO'].includes(status)) currentIndex = 0;
+        if (['EN_PREPARACION', 'LISTO'].includes(status)) currentIndex = 1;
+        if (['EN_CAMINO'].includes(status)) currentIndex = 2;
+        if (['ENTREGADO'].includes(status)) currentIndex = 3;
+
+        return (
+            <View style={styles.trackerContainer}>
+                {steps.map((step, index) => {
+                    const isCompleted = index <= currentIndex;
+                    const isActive = index === currentIndex;
+                    const isLast = index === steps.length - 1;
+                    return (
+                        <View key={step} style={styles.trackerStepContainer}>
+                            <View style={styles.trackerNodeContainer}>
+                                <View style={[styles.trackerNode, isCompleted && styles.trackerNodeActive]} />
+                                {!isLast && (
+                                    <View style={[styles.trackerLine, index < currentIndex && styles.trackerLineActive]} />
+                                )}
+                            </View>
+                            <Text style={[styles.trackerLabel, isActive && styles.trackerLabelActive, isCompleted && !isActive && styles.trackerLabelCompleted]}>
+                                {step}
+                            </Text>
+                        </View>
+                    );
+                })}
+            </View>
+        );
+    };
+
     const renderOrderItem = ({ item }: { item: any }) => {
         const cfg = getStatusConfig(item.status);
         const itemCount = item.items?.length || 0;
@@ -97,6 +131,26 @@ export default function OrdersScreen() {
                     <Text style={styles.itemsDetail} numberOfLines={2}>
                         {itemsSummary}{hasMore ? ` +${itemCount - 3} más` : ''}
                     </Text>
+                    
+                    <OrderProgressTracker status={item.status} />
+                    
+                    {/* Payment Status */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', marginTop: 10, gap: 10 }}>
+                        <Text style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>
+                            {item.payment_method === 'EFECTIVO' ? '💵 Efectivo' : (item.payment_method === 'MIXTO' ? '⚖️ Mixto' : '📱 Transferencia / MP')}
+                        </Text>
+                        <View style={{
+                            backgroundColor: item.payment_status === 'VERIFIED' ? '#E8F5E9' : '#FFEBEE',
+                            paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6
+                        }}>
+                            <Text style={{
+                                color: item.payment_status === 'VERIFIED' ? '#2E7D32' : '#C62828',
+                                fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase'
+                            }}>
+                                {item.payment_status === 'VERIFIED' ? '✅ Pagado' : (item.payment_status === 'PENDING' ? '⏳ Pago Pendiente' : '❌ No Pagado')}
+                            </Text>
+                        </View>
+                    </View>
                 </View>
 
                 {/* FOOTER */}
@@ -131,7 +185,6 @@ export default function OrdersScreen() {
 
     return (
         <View style={styles.container}>
-            <Stack.Screen options={{ title: 'Mis Pedidos' }} />
 
             {loading ? (
                 <View style={styles.center}>
@@ -299,5 +352,55 @@ const styles = StyleSheet.create({
         color: '#666',
         textAlign: 'center',
         paddingHorizontal: 32,
+    },
+    trackerContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 16,
+        paddingHorizontal: 8,
+    },
+    trackerStepContainer: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    trackerNodeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
+    },
+    trackerNode: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        backgroundColor: '#E0E0E0',
+        zIndex: 2,
+    },
+    trackerNodeActive: {
+        backgroundColor: '#1B5E20',
+    },
+    trackerLine: {
+        flex: 1,
+        height: 2,
+        backgroundColor: '#E0E0E0',
+        marginLeft: -7,
+        marginRight: -7,
+        zIndex: 1,
+    },
+    trackerLineActive: {
+        backgroundColor: '#1B5E20',
+    },
+    trackerLabel: {
+        fontSize: 10,
+        color: '#999',
+        marginTop: 6,
+        textAlign: 'center',
+        fontWeight: '600',
+    },
+    trackerLabelActive: {
+        color: '#1B5E20',
+        fontWeight: '800',
+    },
+    trackerLabelCompleted: {
+        color: '#2E7D32',
     },
 });

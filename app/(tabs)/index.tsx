@@ -102,7 +102,7 @@ export default function HomeScreen() {
                 <View style={styles.heroContent}>
                     <Text style={styles.heroTitle}>Ofertas Top 🔥</Text>
                     <Text style={styles.heroSubtitle}>Hasta 30% off en seleccionados</Text>
-                    <Pressable style={styles.heroBtn} onPress={() => router.push('/ofertas')}>
+                    <Pressable style={styles.heroBtn} onPress={() => router.push('/(tabs)/ofertas')}>
                         <Text style={styles.heroBtnText}>Ver Promos</Text>
                     </Pressable>
                 </View>
@@ -132,7 +132,7 @@ export default function HomeScreen() {
                     </Pressable>
                     <Pressable
                         style={styles.ordersBtn}
-                        onPress={() => router.push('/orders')}
+                        onPress={() => router.push('/(tabs)/orders')}
                     >
                         <Text style={styles.ordersBtnIcon}>📋</Text>
                         <Text style={styles.ordersBtnText}>Mis Pedidos</Text>
@@ -189,7 +189,7 @@ export default function HomeScreen() {
             {showBanner && (
                 <Pressable
                     style={styles.registerBanner}
-                    onPress={() => router.push('/login')}
+                    onPress={() => router.push('/(tabs)/profile')}
                 >
                     <View style={styles.registerContent}>
                         <Text style={styles.registerEmoji}>👋</Text>
@@ -311,15 +311,6 @@ export default function HomeScreen() {
                 </Pressable>
             </Modal>
 
-            {/* FAB BOT IA */}
-            <Pressable
-                style={styles.fab}
-                onPress={() => {
-                    Linking.openURL('https://wa.me/5491100000000?text=Hola,%20necesito%20ayuda%20con%20mi%20pedido');
-                }}
-            >
-                <Text style={styles.fabIcon}>🤖</Text>
-            </Pressable>
         </View>
     );
 }
@@ -571,7 +562,7 @@ const styles = StyleSheet.create({
     // ─── Floating Cart Bar ───
     cartBar: {
         position: 'absolute',
-        bottom: 90,
+        bottom: 16,
         left: 16,
         right: 16,
         backgroundColor: '#1B5E20',

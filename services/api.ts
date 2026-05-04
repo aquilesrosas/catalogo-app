@@ -101,6 +101,10 @@ export interface StoreConfig {
     primary_color: string;
     catalog_config: Record<string, unknown>;
     tenant_type: string;
+    store_address?: string;
+    store_lat?: number | null;
+    store_lng?: number | null;
+    logo_url?: string | null;
 }
 
 export interface OrderItem {

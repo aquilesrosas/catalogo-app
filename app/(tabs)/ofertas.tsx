@@ -112,15 +112,6 @@ export default function OfertasScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Pressable onPress={() => router.back()} style={styles.backBtn}>
-                    <Text style={styles.backText}>‹</Text>
-                </Pressable>
-                <Text style={styles.headerTitle}>🔥 Ofertas y Promos</Text>
-                <View style={{ width: 40 }} />
-            </View>
-
             {loading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#FF6F00" />

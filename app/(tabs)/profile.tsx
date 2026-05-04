@@ -14,7 +14,7 @@ import {
     Modal,
     ScrollView,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
 import { requestOTP, verifyOTP, logoutAPI, getProfile, loginPassword, setPassword, registerAPI } from '@/services/api';
 import { useConfigStore } from '@/stores/configStore';
@@ -167,7 +167,6 @@ export default function LoginScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: step === 'logged_in' ? 'Mi cuenta' : 'Iniciar sesión' }} />
             <KeyboardAvoidingView
                 style={styles.container}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -337,15 +336,23 @@ export default function LoginScreen() {
                                     </View>
                                     <Text style={styles.profileName}>{clientName}</Text>
                                     <Text style={styles.profilePhone}>📱 {clientPhone}</Text>
-                                    <View style={styles.pointsBadge}>
-                                        <Text style={styles.pointsText}>🏆 {clientPoints} puntos</Text>
+                                    
+                                    <View style={styles.pointsContainer}>
+                                        <Text style={styles.pointsIcon}>🌟</Text>
+                                        <View>
+                                            <Text style={styles.pointsValue}>{clientPoints}</Text>
+                                            <Text style={styles.pointsLabel}>Puntos Acumulados</Text>
+                                        </View>
                                     </View>
                                 </View>
-                                <Pressable style={styles.primaryBtn} onPress={() => router.replace('/')}>
+                                <Pressable style={styles.primaryBtn} onPress={() => router.replace('/(tabs)')}>
                                     <Text style={styles.primaryBtnText}>🛒 Ir al catálogo</Text>
                                 </Pressable>
-                                <Pressable style={styles.ordersBtn} onPress={() => router.push('/orders')}>
+                                <Pressable style={styles.ordersBtn} onPress={() => router.push('/(tabs)/orders')}>
                                     <Text style={styles.ordersBtnText}>📄 Mis Pedidos</Text>
+                                </Pressable>
+                                <Pressable style={[styles.ordersBtn, { borderColor: '#FF6F00', backgroundColor: '#FFF8E1' }]} onPress={() => router.push('/store')}>
+                                    <Text style={[styles.ordersBtnText, { color: '#FF6F00' }]}>🏪 Nuestro Local</Text>
                                 </Pressable>
                                 <Pressable
                                     style={styles.changeConfigBtn}
@@ -648,18 +655,33 @@ const styles = StyleSheet.create({
         color: '#666',
         marginBottom: 12,
     },
-    pointsBadge: {
-        backgroundColor: '#E8F5E9',
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderRadius: 20,
+    pointsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FFF8E1',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 16,
+        width: '100%',
         borderWidth: 1,
-        borderColor: '#C8E6C9',
+        borderColor: '#FFECB3',
+        gap: 12,
+        marginTop: 10,
     },
-    pointsText: {
-        color: '#1B5E20',
+    pointsIcon: {
+        fontSize: 32,
+    },
+    pointsValue: {
+        fontSize: 24,
+        fontWeight: '900',
+        color: '#FF8F00',
+    },
+    pointsLabel: {
+        fontSize: 12,
         fontWeight: '700',
-        fontSize: 14,
+        color: '#FFB300',
+        textTransform: 'uppercase',
     },
     logoutBtn: {
         paddingVertical: 14,
