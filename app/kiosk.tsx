@@ -984,7 +984,7 @@ const s = StyleSheet.create({
 
     // Product Card
     productCard: { backgroundColor: '#1E1E1E', borderRadius: 20, overflow: 'hidden', position: 'relative' },
-    productImgPlaceholder: { height: 110, backgroundColor: '#282828', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+    productImgPlaceholder: { height: 180, backgroundColor: '#282828', alignItems: 'center', justifyContent: 'center', position: 'relative' },
     productImageReal: { width: '100%', height: '100%', position: 'absolute' },
     productEmoji: { fontSize: 48, opacity: 0.4 },
     productUnitBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },

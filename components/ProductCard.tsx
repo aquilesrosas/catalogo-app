@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     },
     imageContainer: {
         width: '100%',
-        height: CARD_WIDTH * 0.8,
+        aspectRatio: 1, // Makes the image square (taller than 0.8)
         backgroundColor: '#F5F5F5',
         position: 'relative',
     },
