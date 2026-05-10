@@ -34,7 +34,7 @@ export default function CheckoutScreen() {
     const [notes, setNotes] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('EFECTIVO');
     const [cashAmount, setCashAmount] = useState('');
-    const [tipoEntrega, setTipoEntrega] = useState<'LOCAL' | 'DELIVERY'>('LOCAL');
+    const [tipoEntrega, setTipoEntrega] = useState<'LOCAL' | 'DELIVERY' | 'MESA'>('LOCAL');
     const [direccion, setDireccion] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -215,6 +215,12 @@ export default function CheckoutScreen() {
                 return;
             }
         }
+        if (tipoEntrega === 'MESA') {
+            if (!direccion.trim()) {
+                showAlert('Error', 'Ingresá en qué Cancha o Mesa estás');
+                return;
+            }
+        }
 
         if (isScheduled && !selectedSlot) {
             showAlert('Error', 'Seleccioná un horario para tu pedido');
@@ -236,7 +242,7 @@ export default function CheckoutScreen() {
             let payload: any = {
                 source: 'CATALOG',
                 tipo_entrega: tipoEntrega,
-                direccion_envio: tipoEntrega === 'DELIVERY' ? direccion.trim() : undefined,
+                direccion_envio: (tipoEntrega === 'DELIVERY' || tipoEntrega === 'MESA') ? direccion.trim() : undefined,
                 latitud: tipoEntrega === 'DELIVERY' ? mapLocation?.lat : undefined,
                 longitud: tipoEntrega === 'DELIVERY' ? mapLocation?.lng : undefined,
                 client_name: trimmedName,
@@ -467,7 +473,32 @@ export default function CheckoutScreen() {
                                 Envío
                             </Text>
                         </Pressable>
+                        <Pressable
+                            style={[
+                                styles.paymentOption,
+                                tipoEntrega === 'MESA' && styles.paymentActive,
+                            ]}
+                            onPress={() => setTipoEntrega('MESA')}
+                        >
+                            <Text style={styles.paymentIcon}>⚽</Text>
+                            <Text style={[styles.paymentText, tipoEntrega === 'MESA' && styles.paymentTextActive]}>
+                                A la Cancha / Mesa
+                            </Text>
+                        </Pressable>
                     </View>
+
+                    {tipoEntrega === 'MESA' && (
+                        <View style={styles.mixtoArea}>
+                            <Text style={styles.inputLabel}>¿En qué Cancha o Mesa estás? *</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={direccion}
+                                onChangeText={setDireccion}
+                                placeholder="Ej: Cancha 1"
+                                placeholderTextColor="#aaa"
+                            />
+                        </View>
+                    )}
 
                     {tipoEntrega === 'DELIVERY' && (
                         <View style={styles.mixtoArea}>
@@ -757,64 +788,75 @@ export default function CheckoutScreen() {
                 </View>
 
                 {/* ── Points Redemption ── */}
-                {logged && canRedeem && (
+                {logged && loyaltyConfig?.is_active && (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>⭐ Canjear Puntos</Text>
-                        <View style={styles.pointsCard}>
-                            <View style={styles.pointsCardHeader}>
+                        {canRedeem ? (
+                            <View style={styles.pointsCard}>
+                                <View style={styles.pointsCardHeader}>
+                                    <Text style={styles.pointsBalance}>
+                                        Tenés <Text style={styles.pointsHighlight}>{clientPoints}</Text> puntos
+                                    </Text>
+                                    <Text style={styles.pointsEquiv}>
+                                        = hasta {formatPrice(maxRedeemablePoints * (loyaltyConfig?.currency_per_point || 0))} de descuento
+                                    </Text>
+                                </View>
+
+                                <Pressable
+                                    style={[styles.togglePoints, usePoints && styles.togglePointsActive]}
+                                    onPress={() => {
+                                        setUsePoints(!usePoints);
+                                        if (!usePoints) {
+                                            setPointsToRedeem(maxRedeemablePoints);
+                                        } else {
+                                            setPointsToRedeem(0);
+                                        }
+                                    }}
+                                >
+                                    <Text style={styles.togglePointsText}>
+                                        {usePoints ? '✅ Usando puntos' : 'Usar mis puntos'}
+                                    </Text>
+                                </Pressable>
+
+                                {usePoints && (
+                                    <View style={styles.pointsInputArea}>
+                                        <Text style={styles.pointsInputLabel}>Puntos a usar:</Text>
+                                        <TextInput
+                                            style={styles.pointsInput}
+                                            value={String(pointsToRedeem)}
+                                            onChangeText={(v) => {
+                                                const num = parseInt(v) || 0;
+                                                setPointsToRedeem(Math.min(num, maxRedeemablePoints));
+                                            }}
+                                            keyboardType="numeric"
+                                            selectTextOnFocus
+                                        />
+                                        <Text style={styles.pointsMaxHint}>
+                                            Máx: {maxRedeemablePoints} puntos
+                                        </Text>
+                                        {pointsDiscount > 0 && (
+                                            <View style={styles.discountPreview}>
+                                                <Text style={styles.discountText}>
+                                                    🎁 Descuento: -{formatPrice(pointsDiscount)}
+                                                </Text>
+                                                <Text style={styles.newTotalText}>
+                                                    Nuevo total: {formatPrice(finalTotal)}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+                            </View>
+                        ) : (
+                            <View style={[styles.pointsCard, { opacity: 0.7 }]}>
                                 <Text style={styles.pointsBalance}>
                                     Tenés <Text style={styles.pointsHighlight}>{clientPoints}</Text> puntos
                                 </Text>
-                                <Text style={styles.pointsEquiv}>
-                                    = hasta {formatPrice(maxRedeemablePoints * (loyaltyConfig?.currency_per_point || 0))} de descuento
+                                <Text style={{ color: '#666', marginTop: 4 }}>
+                                    Necesitás al menos {loyaltyConfig.min_points_to_redeem} puntos para poder canjearlos en tu compra.
                                 </Text>
                             </View>
-
-                            <Pressable
-                                style={[styles.togglePoints, usePoints && styles.togglePointsActive]}
-                                onPress={() => {
-                                    setUsePoints(!usePoints);
-                                    if (!usePoints) {
-                                        setPointsToRedeem(maxRedeemablePoints);
-                                    } else {
-                                        setPointsToRedeem(0);
-                                    }
-                                }}
-                            >
-                                <Text style={styles.togglePointsText}>
-                                    {usePoints ? '✅ Usando puntos' : 'Usar mis puntos'}
-                                </Text>
-                            </Pressable>
-
-                            {usePoints && (
-                                <View style={styles.pointsInputArea}>
-                                    <Text style={styles.pointsInputLabel}>Puntos a usar:</Text>
-                                    <TextInput
-                                        style={styles.pointsInput}
-                                        value={String(pointsToRedeem)}
-                                        onChangeText={(v) => {
-                                            const num = parseInt(v) || 0;
-                                            setPointsToRedeem(Math.min(num, maxRedeemablePoints));
-                                        }}
-                                        keyboardType="numeric"
-                                        selectTextOnFocus
-                                    />
-                                    <Text style={styles.pointsMaxHint}>
-                                        Máx: {maxRedeemablePoints} puntos
-                                    </Text>
-                                    {pointsDiscount > 0 && (
-                                        <View style={styles.discountPreview}>
-                                            <Text style={styles.discountText}>
-                                                🎁 Descuento: -{formatPrice(pointsDiscount)}
-                                            </Text>
-                                            <Text style={styles.newTotalText}>
-                                                Nuevo total: {formatPrice(finalTotal)}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
-                            )}
-                        </View>
+                        )}
                     </View>
                 )}
 

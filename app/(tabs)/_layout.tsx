@@ -115,6 +115,14 @@ export default function TabsLayout() {
                 }}
             />
             <Tabs.Screen
+                name="classes"
+                options={{
+                    title: '🩰 Clases',
+                    tabBarLabel: 'Clases',
+                    tabBarIcon: ({ focused }) => <TabIcon emoji="🩰" focused={focused} />,
+                }}
+            />
+            <Tabs.Screen
                 name="_cart_placeholder"
                 options={{
                     title: 'Carrito',
