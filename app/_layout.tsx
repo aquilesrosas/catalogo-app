@@ -122,8 +122,34 @@ export default function RootLayout() {
 
 function RootLayoutContent() {
     const isConfigured = useConfigStore((s) => s.isConfigured());
+    const setTenantSlug = useConfigStore((s) => s.setTenantSlug);
     const segments = useSegments();
     const router = useRouter();
+
+    // ── Auto-configure from URL query params (Facebook Ads deep links) ──
+    // Supports: ?store=slug  and  ?store=slug&product=42
+    useEffect(() => {
+        if (typeof window === 'undefined') return; // Only on web
+        const params = new URLSearchParams(window.location.search);
+        const storeSlug = params.get('store');
+        const productId = params.get('product');
+
+        if (storeSlug) {
+            // Auto-set the tenant slug from the URL
+            setTenantSlug(storeSlug);
+
+            // Clean up URL params after consuming them
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, '', cleanUrl);
+
+            // If a product ID was specified, navigate to it after a short delay
+            if (productId) {
+                setTimeout(() => {
+                    router.replace(`/product/${productId}` as any);
+                }, 500);
+            }
+        }
+    }, []);
 
     // Redirect to config_setup if not configured
     if (!isConfigured && segments[0] !== 'config_setup') {
