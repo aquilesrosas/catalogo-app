@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useConfigStore } from '@/stores/configStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,12 +42,18 @@ export default function HeroHeader() {
 
                 {/* Quick Filters Bar (Glassmorphism) */}
                 <View style={styles.filtersBar}>
-                    <Pressable style={styles.filterPill}>
+                    <Pressable 
+                        style={styles.filterPill}
+                        onPress={() => Alert.alert('Próximamente', 'La selección de método de envío estará disponible muy pronto.')}
+                    >
                         <Ionicons name="bicycle-outline" size={16} color="#fff" />
                         <Text style={styles.filterText}>Delivery</Text>
                         <Ionicons name="chevron-down" size={14} color="#fff" style={{ marginLeft: 4 }} />
                     </Pressable>
-                    <Pressable style={styles.filterPill}>
+                    <Pressable 
+                        style={styles.filterPill}
+                        onPress={() => Alert.alert('Próximamente', 'La selección de tiempo estimado de entrega estará disponible pronto.')}
+                    >
                         <Ionicons name="time-outline" size={16} color="#fff" />
                         <Text style={styles.filterText}>Lo antes posible</Text>
                         <Ionicons name="chevron-down" size={14} color="#fff" style={{ marginLeft: 4 }} />
