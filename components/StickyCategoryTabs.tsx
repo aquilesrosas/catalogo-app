@@ -28,13 +28,12 @@ export default function StickyCategoryTabs({ categories, selectedId, onSelect }:
                 contentContainerStyle={styles.container}
             >
                 <Pressable
-                    style={styles.tabContainer}
+                    style={[styles.tabContainer, !selectedId && { backgroundColor: primaryColor }]}
                     onPress={() => onSelect(null)}
                 >
-                    <Text style={[styles.tabText, !selectedId && { color: primaryColor, fontWeight: '800' }]}>
+                    <Text style={[styles.tabText, !selectedId && { color: '#FFF', fontWeight: '800' }]}>
                         Todos
                     </Text>
-                    {!selectedId && <View style={[styles.activeLine, { backgroundColor: primaryColor }]} />}
                 </Pressable>
 
                 {categories.map((cat) => {
@@ -42,18 +41,17 @@ export default function StickyCategoryTabs({ categories, selectedId, onSelect }:
                     return (
                         <Pressable
                             key={cat.id_categoria}
-                            style={styles.tabContainer}
+                            style={[styles.tabContainer, isActive && { backgroundColor: primaryColor }]}
                             onPress={() => onSelect(cat.id_categoria)}
                         >
                             <Text
                                 style={[
                                     styles.tabText,
-                                    isActive && { color: primaryColor, fontWeight: '800' },
+                                    isActive && { color: '#FFF', fontWeight: '800' },
                                 ]}
                             >
                                 {cat.nombre_categoria}
                             </Text>
-                            {isActive && <View style={[styles.activeLine, { backgroundColor: primaryColor }]} />}
                         </Pressable>
                     );
                 })}
@@ -65,34 +63,31 @@ export default function StickyCategoryTabs({ categories, selectedId, onSelect }:
 const styles = StyleSheet.create({
     wrapper: {
         backgroundColor: '#FAFAFA',
-        borderBottomWidth: 1,
-        borderBottomColor: '#EEEEEE',
+        paddingVertical: 10,
         zIndex: 10,
     },
     container: {
         paddingHorizontal: 16,
         alignItems: 'center',
+        gap: 10,
     },
     tabContainer: {
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        position: 'relative',
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 25,
+        backgroundColor: '#EEEEEE',
         justifyContent: 'center',
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     tabText: {
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: '600',
-        color: '#777',
+        color: '#555',
         textTransform: 'capitalize',
-    },
-    activeLine: {
-        position: 'absolute',
-        bottom: 0,
-        left: 16,
-        right: 16,
-        height: 3,
-        borderTopLeftRadius: 3,
-        borderTopRightRadius: 3,
     },
 });
