@@ -9,6 +9,7 @@ import {
     Pressable,
     Linking,
     Modal,
+    useWindowDimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,9 +18,10 @@ import { useAuthStore } from '@/stores/authStore';
 import { useConfigStore } from '@/stores/configStore';
 import { getProfile } from '@/services/api';
 import ProductCard from '@/components/ProductCard';
-import CategoryChips from '@/components/CategoryChips';
+import StickyCategoryTabs from '@/components/StickyCategoryTabs';
 import SearchBar from '@/components/SearchBar';
 import EmptyState from '@/components/EmptyState';
+import HeroHeader from '@/components/HeroHeader';
 import { SkeletonGrid } from '@/components/ProductSkeleton';
 import { useCartStore } from '@/stores/cartStore';
 import { formatPrice } from '@/utils/format';
@@ -57,6 +59,9 @@ export default function HomeScreen() {
     const [pointsModalVisible, setPointsModalVisible] = useState(false);
     const showBanner = !isLoggedIn() && !bannerDismissed;
     const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
+
+    const numCols = width >= 1024 ? 4 : width >= 768 ? 3 : 1;
 
     // Sort products: in-stock first, out-of-stock last
     const sortedProducts = useMemo(() => {
@@ -108,69 +113,15 @@ export default function HomeScreen() {
 
     const renderHeader = () => (
         <View style={styles.headerWrapper}>
-            {/* HERO BANNER PREMIUM */}
-            <View style={styles.heroBanner}>
-                <View style={styles.heroContent}>
-                    <Text style={styles.heroTitle}>Ofertas Top 🔥</Text>
-                    <Text style={styles.heroSubtitle}>Hasta 30% off en seleccionados</Text>
-                    <Pressable style={styles.heroBtn} onPress={() => router.push('/(tabs)/ofertas')}>
-                        <Text style={styles.heroBtnText}>Ver Promos</Text>
-                    </Pressable>
-                </View>
-                {/* Placeholder graphic block */}
-                <View style={styles.heroGraphic}>
-                    <Text style={styles.heroEmoji}>🍔🍕</Text>
-                </View>
-            </View>
-
-            {/* PUNTOS + MIS PEDIDOS (solo si logueado) */}
-            {isLoggedIn() && (
-                <View style={styles.loyaltyRow}>
-                    <Pressable 
-                        style={styles.pointsBadge}
-                        onPress={() => setPointsModalVisible(true)}
-                    >
-                        <Text style={styles.pointsIcon}>⭐</Text>
-                        <View>
-                            <Text style={styles.pointsValue}>{clientPoints} puntos</Text>
-                            <Text style={styles.pointsHint}>
-                                {loyaltyConfig && clientPoints >= loyaltyConfig.min_points_to_redeem
-                                    ? '🎁 ¡Canjeá tus puntos!'
-                                    : `Faltan para un beneficio`}
-                            </Text>
-                        </View>
-                        <Text style={styles.infoIcon}>ⓘ</Text>
-                    </Pressable>
-                    <Pressable
-                        style={styles.ordersBtn}
-                        onPress={() => router.push('/(tabs)/orders')}
-                    >
-                        <Text style={styles.ordersBtnIcon}>📋</Text>
-                        <Text style={styles.ordersBtnText}>Mis Pedidos</Text>
-                    </Pressable>
-                </View>
-            )}
-
-            {/* MODULO PEDIR COMIDA (Kiosk) */}
-            <Pressable
-                style={styles.kioskBanner}
-                onPress={() => router.push('/kiosk')}
-            >
-                <View style={styles.kioskContent}>
-                    <Text style={styles.kioskEmoji}>🍔</Text>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.kioskTitle}>{kioskTitle || '🍔 Pedir Comida'}</Text>
-                        <Text style={styles.kioskSubtitle}>Tocá para hacer tu pedido</Text>
-                    </View>
-                    <Text style={styles.kioskArrow}>›</Text>
-                </View>
-            </Pressable>
+            <HeroHeader />
 
             {/* BUSCADOR PROMINENTE */}
-            <SearchBar value={searchQuery} onSearch={setSearch} />
+            <View style={{ paddingHorizontal: 16, marginTop: 16, marginBottom: 8 }}>
+                <SearchBar value={searchQuery} onSearch={setSearch} />
+            </View>
 
-            {/* CHIPS DE NAVEGACION (Circulos) */}
-            <CategoryChips
+            {/* CHIPS DE NAVEGACION (Nuevos Sticky Tabs) */}
+            <StickyCategoryTabs
                 categories={categories}
                 selectedId={selectedCategory}
                 onSelect={setCategory}
@@ -233,11 +184,16 @@ export default function HomeScreen() {
     return (
         <View style={styles.container}>
             <FlatList
+                key={`grid-${numCols}`}
                 data={sortedProducts}
                 keyExtractor={(item) => item.id_producto.toString()}
-                renderItem={({ item }) => <ProductCard product={item} />}
-                numColumns={2}
-                columnWrapperStyle={styles.row}
+                renderItem={({ item }) => (
+                    <View style={numCols > 1 ? styles.gridItem : styles.listItem}>
+                        <ProductCard product={item} />
+                    </View>
+                )}
+                numColumns={numCols}
+                columnWrapperStyle={numCols > 1 ? styles.row : undefined}
                 contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 80 }]}
                 ListHeaderComponent={renderHeader}
                 ListEmptyComponent={renderEmpty}
@@ -329,13 +285,25 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FAFAFA',
+        backgroundColor: '#F5F6F8',
+    },
+    headerWrapper: {
+        backgroundColor: '#F5F6F8',
     },
     list: {
         paddingBottom: 20,
+        paddingTop: 8,
     },
     row: {
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start',
+        paddingHorizontal: 16,
+        gap: 16, // using gap instead of space-between for better alignment in grid
+    },
+    gridItem: {
+        flex: 1,
+        maxWidth: '33.33%', // fallback, controlled by gap
+    },
+    listItem: {
         paddingHorizontal: 16,
     },
     footer: {
@@ -442,10 +410,6 @@ const styles = StyleSheet.create({
         fontWeight: '300',
     },
     // ─── Hero Banner Premium ───
-    headerWrapper: {
-        backgroundColor: '#FAFAFA',
-        paddingTop: 8,
-    },
     // ─── Loyalty Row ───
     loyaltyRow: {
         flexDirection: 'row',

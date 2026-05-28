@@ -1,14 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, Animated } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Animated, useWindowDimensions, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Product } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 import { useCartStore } from '@/stores/cartStore';
 import { useCatalogStore } from '@/stores/catalogStore';
+import { useConfigStore } from '@/stores/configStore';
 import StockBadge from './StockBadge';
-
-const CARD_WIDTH = (Dimensions.get('window').width - 48) / 2;
 
 interface ProductCardProps {
     product: Product;
@@ -17,30 +16,55 @@ interface ProductCardProps {
 function ProductCard({ product }: ProductCardProps) {
     const router = useRouter();
     const addItem = useCartStore((s) => s.addItem);
-    const offers = useCatalogStore((s) => s.offers); // Fetch offers
+    const offers = useCatalogStore((s) => s.offers);
+    const primaryColor = useConfigStore((s: any) => s.primary_color) || '#D32F2F';
+    const { width } = useWindowDimensions();
+    
+    const isDesktop = width >= 768;
+
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+    const elevationAnim = useRef(new Animated.Value(isDesktop ? 4 : 2)).current;
+
+    const animateIn = () => {
+        Animated.parallel([
+            Animated.timing(scaleAnim, { toValue: 1.02, duration: 200, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(elevationAnim, { toValue: 12, duration: 200, useNativeDriver: false })
+        ]).start();
+    };
+
+    const animateOut = () => {
+        Animated.parallel([
+            Animated.timing(scaleAnim, { toValue: 1, duration: 200, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(elevationAnim, { toValue: isDesktop ? 4 : 2, duration: 200, useNativeDriver: false })
+        ]).start();
+    };
 
     const handleAdd = (e: any) => {
         e.stopPropagation?.();
         if (product.in_stock) {
-            // For weight products, add 0.5kg; for unit products, add 1
             const qty = product.sells_by_weight ? 0.5 : 1;
             addItem(product, qty);
         }
     };
 
-    // Determine if product has an active offer
     const applicableOffer = offers.find(o =>
         o.aplica_a_todo || (o.productos && o.productos.includes(product.id_producto))
     );
 
     return (
-        <View>
+        <Animated.View style={[
+            styles.cardContainer, 
+            isDesktop ? styles.cardDesktop : styles.cardMobile,
+            { transform: [{ scale: scaleAnim }], elevation: elevationAnim }
+        ]}>
             <Pressable
-                style={({ pressed }) => [
-                    styles.card,
-                    pressed && styles.pressed,
-                ]}
+                style={[styles.pressable, isDesktop ? styles.pressableDesktop : styles.pressableMobile]}
                 onPress={() => router.push(`/product/${product.id_producto}`)}
+                //@ts-ignore
+                onHoverIn={animateIn}
+                onHoverOut={animateOut}
+                onPressIn={animateIn}
+                onPressOut={animateOut}
             >
                 {!product.in_stock && (
                     <View style={styles.outOfStockOverlay}>
@@ -50,21 +74,20 @@ function ProductCard({ product }: ProductCardProps) {
                     </View>
                 )}
 
-                <View style={styles.imageContainer}>
+                <View style={[styles.imageContainer, isDesktop ? styles.imageDesktop : styles.imageMobile]}>
                     {product.image_url ? (
                         <Image
                             source={{ uri: product.image_url }}
-                            style={styles.image}
+                            style={styles.image as any}
                             contentFit="cover"
                             transition={200}
                         />
                     ) : (
                         <View style={styles.placeholder}>
-                            <Text style={styles.placeholderIcon}>📦</Text>
+                            <Text style={styles.placeholderIcon}>🍽️</Text>
                         </View>
                     )}
 
-                    {/* Offer Badge Overlay */}
                     {applicableOffer && (
                         <View style={styles.offerBadge}>
                             <Text style={styles.offerBadgeText}>
@@ -77,7 +100,6 @@ function ProductCard({ product }: ProductCardProps) {
                         </View>
                     )}
 
-                    {/* Unit badge on image */}
                     {product.sells_by_weight && (
                         <View style={styles.unitBadge}>
                             <Text style={styles.unitBadgeText}>x {product.unit}</Text>
@@ -85,77 +107,110 @@ function ProductCard({ product }: ProductCardProps) {
                     )}
                 </View>
 
-                <View style={styles.info}>
-                    <Text style={styles.category}>{product.category}</Text>
-                    <Text style={styles.name} numberOfLines={2}>
-                        {product.nombre_producto}
-                    </Text>
-                    <Text style={[styles.price, !product.in_stock && styles.priceGray]}>
-                        {formatPrice(product.price)}
-                        {product.sells_by_weight && (
-                            <Text style={styles.perUnit}> /{product.unit}</Text>
+                <View style={[styles.info, isDesktop ? styles.infoDesktop : styles.infoMobile]}>
+                    <View style={styles.textContainer}>
+                        <Text style={[styles.name, { color: '#1a1a1a' }]} numberOfLines={isDesktop ? 2 : 1}>
+                            {product.nombre_producto}
+                        </Text>
+                        
+                        {!!product.descripcion && (
+                            <Text style={styles.description} numberOfLines={2}>
+                                {product.descripcion}
+                            </Text>
                         )}
-                    </Text>
+                    </View>
 
                     <View style={styles.bottomRow}>
-                        <StockBadge stockLevel={product.stock_level} />
+                        <View>
+                            <Text style={[styles.price, { color: primaryColor }, !product.in_stock && styles.priceGray]}>
+                                {formatPrice(product.price)}
+                                {product.sells_by_weight && (
+                                    <Text style={styles.perUnit}> /{product.unit}</Text>
+                                )}
+                            </Text>
+                            {!isDesktop && <StockBadge stockLevel={product.stock_level} />}
+                        </View>
+
                         {product.in_stock && (
-                            <Pressable style={styles.addBtn} onPress={handleAdd}>
+                            <Pressable 
+                                style={[styles.addBtn, { backgroundColor: primaryColor }]} 
+                                onPress={handleAdd}
+                            >
                                 <Text style={styles.addBtnText}>+</Text>
                             </Pressable>
                         )}
                     </View>
+                    {isDesktop && <StockBadge stockLevel={product.stock_level} />}
                 </View>
             </Pressable>
-        </View>
+        </Animated.View>
     );
 }
 
 export default React.memo(ProductCard);
 
 const styles = StyleSheet.create({
-    card: {
-        width: CARD_WIDTH,
+    cardContainer: {
         backgroundColor: '#fff',
-        borderRadius: 14,
-        marginBottom: 14,
+        borderRadius: 16,
+        marginBottom: 16,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 4,
-        overflow: 'hidden',
-        position: 'relative',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
     },
-    pressed: {
-        transform: [{ scale: 0.97 }],
+    cardMobile: {
+        width: '100%',
+        height: 140,
+    },
+    cardDesktop: {
+        width: '100%',
+        height: '100%',
+    },
+    pressable: {
+        flex: 1,
+        overflow: 'hidden',
+        borderRadius: 16,
+    },
+    pressableMobile: {
+        flexDirection: 'row',
+    },
+    pressableDesktop: {
+        flexDirection: 'column',
     },
     outOfStockOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.55)',
+        backgroundColor: 'rgba(255,255,255,0.6)',
         zIndex: 10,
-        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
     },
     agotadoBadge: {
-        backgroundColor: 'rgba(0,0,0,0.65)',
-        paddingHorizontal: 14,
-        paddingVertical: 6,
-        borderRadius: 8,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 12,
+        transform: [{ rotate: '-5deg' }],
     },
     agotadoText: {
         color: '#fff',
-        fontSize: 13,
-        fontWeight: '800',
+        fontSize: 14,
+        fontWeight: '900',
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     imageContainer: {
-        width: '100%',
-        aspectRatio: 1, // Makes the image square (taller than 0.8)
         backgroundColor: '#F5F5F5',
         position: 'relative',
+        overflow: 'hidden',
+    },
+    imageMobile: {
+        width: 140,
+        height: '100%',
+    },
+    imageDesktop: {
+        width: '100%',
+        aspectRatio: 1.2,
     },
     image: {
         width: '100%',
@@ -169,16 +224,17 @@ const styles = StyleSheet.create({
         backgroundColor: '#F0F4F0',
     },
     placeholderIcon: {
-        fontSize: 36,
+        fontSize: 40,
+        opacity: 0.5,
     },
     unitBadge: {
         position: 'absolute',
-        top: 6,
-        right: 6,
-        backgroundColor: 'rgba(27,94,32,0.85)',
+        top: 8,
+        right: 8,
+        backgroundColor: 'rgba(0,0,0,0.7)',
         paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
     },
     unitBadgeText: {
         color: '#fff',
@@ -187,74 +243,78 @@ const styles = StyleSheet.create({
     },
     offerBadge: {
         position: 'absolute',
-        top: 6,
-        left: 6,
-        backgroundColor: '#D32F2F', // Red for offers
-        paddingHorizontal: 8,
-        paddingVertical: 3,
+        top: 8,
+        left: 8,
+        backgroundColor: '#E53935',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
         borderRadius: 8,
         zIndex: 5,
     },
     offerBadgeText: {
         color: '#fff',
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: '900',
     },
     info: {
-        padding: 12,
-        gap: 4,
+        flex: 1,
+        padding: 14,
+        justifyContent: 'space-between',
     },
-    category: {
-        fontSize: 10,
-        color: '#999',
-        textTransform: 'uppercase',
-        letterSpacing: 0.8,
-        fontWeight: '600',
+    infoMobile: {
+    },
+    infoDesktop: {
+        gap: 8,
+    },
+    textContainer: {
+        flex: 1,
     },
     name: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#1a1a1a',
+        fontSize: 16,
+        fontWeight: '700',
+        lineHeight: 20,
+        marginBottom: 4,
+    },
+    description: {
+        fontSize: 13,
+        color: '#757575',
         lineHeight: 18,
-        minHeight: 36,
+    },
+    bottomRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        marginTop: 8,
     },
     price: {
-        fontSize: 17,
-        fontWeight: '800',
-        color: '#2E7D32',
-        marginTop: 2,
+        fontSize: 18,
+        fontWeight: '900',
     },
     priceGray: {
-        color: '#aaa',
+        color: '#9E9E9E',
+        textDecorationLine: 'line-through',
     },
     perUnit: {
         fontSize: 12,
         fontWeight: '500',
-        color: '#888',
-    },
-    bottomRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginTop: 4,
+        color: '#9E9E9E',
     },
     addBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#1B5E20',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#1B5E20',
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.2,
         shadowRadius: 4,
         elevation: 3,
     },
     addBtnText: {
         color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        lineHeight: 22,
+        fontSize: 22,
+        fontWeight: '600',
+        lineHeight: 24,
     },
 });

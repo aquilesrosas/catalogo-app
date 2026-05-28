@@ -25,7 +25,7 @@ export default function ProductDetailScreen() {
     const [qtyText, setQtyText] = useState('1');
 
     const addItem = useCartStore((s) => s.addItem);
-    const cartItem = useCartStore((s) => s.getItem(Number(id)));
+    const cartItem = useCartStore((s) => s.getItem(String(id)));
 
     useEffect(() => {
         loadProduct();

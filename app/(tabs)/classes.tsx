@@ -4,7 +4,7 @@ import api from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function CatalogDanceClassesScreen() {
-    const { isLoggedIn, clientData } = useAuthStore();
+    const { isLoggedIn } = useAuthStore();
     const [sessions, setSessions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [enrolling, setEnrolling] = useState<number | null>(null);
