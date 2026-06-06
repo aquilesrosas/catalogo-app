@@ -39,6 +39,9 @@ export default function CheckoutScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationLoading, setLocationLoading] = useState(false);
+    const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number | null>(null);
+    const [storeLocation, setStoreLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [outOfRange, setOutOfRange] = useState(false);
 
     // ─── Mercado Pago State ───
     const [mpWaiting, setMpWaiting] = useState(false);
@@ -123,7 +126,7 @@ export default function CheckoutScreen() {
         })();
     }, [tipoEntrega]);
 
-    // Fetch store config for transfer details
+    // Fetch store config for transfer details and delivery radius
     useEffect(() => {
         (async () => {
             try {
@@ -133,6 +136,12 @@ export default function CheckoutScreen() {
                 setTransferCbu((cc.transfer_cbu as string) || '');
                 setTransferHolder((cc.transfer_holder as string) || '');
                 setWhatsappPhone((cc.whatsapp_phone as string) || '');
+                if (cc.delivery_radius_km) {
+                    setDeliveryRadiusKm(Number(cc.delivery_radius_km));
+                }
+                if (config.store_lat && config.store_lng) {
+                    setStoreLocation({ lat: config.store_lat, lng: config.store_lng });
+                }
             } catch { }
         })();
     }, []);
@@ -212,6 +221,10 @@ export default function CheckoutScreen() {
             }
             if (!direccion.trim()) {
                 showAlert('Error', 'Ingresá el detalle de tu domicilio (Piso, depto, etc)');
+                return;
+            }
+            if (outOfRange) {
+                showAlert('Fuera de zona', `Tu dirección está fuera del área de cobertura (${deliveryRadiusKm} km). Por favor elegí una dirección más cercana al local.`);
                 return;
             }
         }
@@ -505,6 +518,12 @@ export default function CheckoutScreen() {
                             <Text style={styles.inputLabel}>Ubicación de entrega *</Text>
                             <Text style={styles.mapHelpText}>Buscá tu dirección y ajustá con el mapa para mayor precisión.</Text>
 
+                            {deliveryRadiusKm && (
+                                <View style={styles.radiusBanner}>
+                                    <Text style={styles.radiusBannerText}>📍 Zona de cobertura: {deliveryRadiusKm} km desde el local</Text>
+                                </View>
+                            )}
+
                             <View style={styles.mapContainer}>
                                 {locationLoading && !mapLocation ? (
                                     <View style={styles.mapLoading}>
@@ -514,14 +533,33 @@ export default function CheckoutScreen() {
                                 ) : (
                                     <LocationPickerMap
                                         initialLocation={mapLocation || undefined}
-                                        onLocationSelect={(lat, lng) => setMapLocation({ lat, lng })}
+                                        onLocationSelect={(lat, lng) => {
+                                            setMapLocation({ lat, lng });
+                                            // Validar radio en tiempo real
+                                            if (deliveryRadiusKm && storeLocation) {
+                                                const toRad = (v: number) => (v * Math.PI) / 180;
+                                                const R = 6371;
+                                                const dLat = toRad(lat - storeLocation.lat);
+                                                const dLng = toRad(lng - storeLocation.lng);
+                                                const a = Math.sin(dLat/2)**2 + Math.cos(toRad(storeLocation.lat)) * Math.cos(toRad(lat)) * Math.sin(dLng/2)**2;
+                                                const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                                                setOutOfRange(dist > deliveryRadiusKm);
+                                            } else {
+                                                setOutOfRange(false);
+                                            }
+                                        }}
                                         onAddressResolved={(address) => {
-                                            // Always update with the latest resolved address
                                             setDireccion(address);
                                         }}
                                     />
                                 )}
                             </View>
+
+                            {outOfRange && (
+                                <View style={styles.outOfRangeBanner}>
+                                    <Text style={styles.outOfRangeText}>⚠️ Esta dirección está fuera de nuestra zona de cobertura ({deliveryRadiusKm} km). Por favor elegí una ubicación más cercana.</Text>
+                                </View>
+                            )}
 
                             <Text style={styles.inputLabel}>Dirección de entrega *</Text>
                             <TextInput
@@ -1498,5 +1536,36 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#1B5E20',
         marginTop: 4,
+    },
+    // ─── Delivery Radius ───
+    radiusBanner: {
+        backgroundColor: '#E3F2FD',
+        borderRadius: 10,
+        padding: 10,
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#90CAF9',
+    },
+    radiusBannerText: {
+        fontSize: 13,
+        color: '#1565C0',
+        fontWeight: '600',
+    },
+    outOfRangeBanner: {
+        backgroundColor: '#FFEBEE',
+        borderRadius: 10,
+        padding: 12,
+        marginTop: 10,
+        marginBottom: 4,
+        borderWidth: 1,
+        borderColor: '#EF9A9A',
+    },
+    outOfRangeText: {
+        fontSize: 13,
+        color: '#C62828',
+        fontWeight: '600',
+        lineHeight: 20,
     },
 });
