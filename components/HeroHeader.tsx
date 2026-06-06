@@ -34,9 +34,15 @@ export default function HeroHeader() {
                 <View style={styles.infoContainer}>
                     <View style={styles.titleRow}>
                         <Text style={styles.title} numberOfLines={1}>{config.name || 'Catálogo'}</Text>
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>Disponible</Text>
-                        </View>
+                        {config.catalog_config?.is_closed ? (
+                            <View style={[styles.badge, { backgroundColor: 'rgba(211, 47, 47, 0.9)' }]}>
+                                <Text style={styles.badgeText}>CERRADO</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>DISPONIBLE</Text>
+                            </View>
+                        )}
                     </View>
                 </View>
             </View>

@@ -10,6 +10,7 @@ import {
 import { Image } from 'expo-image';
 import { useRouter, Stack } from 'expo-router';
 import { useCartStore, CartItem } from '@/stores/cartStore';
+import { useConfigStore } from '@/stores/configStore';
 import { formatPrice } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
 
@@ -84,9 +85,15 @@ function CartItemCard({ item }: { item: CartItem }) {
 
 export default function CartScreen() {
     const { items, getTotal, getItemCount, clearCart } = useCartStore();
+    const config = useConfigStore((s: any) => s);
+    const isClosed = config.catalog_config?.is_closed === true;
     const router = useRouter();
 
     const handleCheckout = () => {
+        if (isClosed) {
+            Alert.alert('Local Cerrado', 'En este momento el local no está recibiendo pedidos. Intentá más tarde.');
+            return;
+        }
         router.push('/checkout');
     };
 
@@ -135,19 +142,24 @@ export default function CartScreen() {
                         ItemSeparatorComponent={() => <View style={styles.separator} />}
                     />
 
-                    {/* Footer with total */}
-                    <View style={styles.footer}>
-                        <View style={styles.totalRow}>
-                            <Text style={styles.totalLabel}>Total</Text>
-                            <Text style={styles.totalValue}>{formatPrice(getTotal())}</Text>
+                        {/* Footer with total */}
+                        <View style={styles.footer}>
+                            <View style={styles.totalRow}>
+                                <Text style={styles.totalLabel}>Total</Text>
+                                <Text style={styles.totalValue}>{formatPrice(getTotal())}</Text>
+                            </View>
+                            <Text style={styles.itemCountText}>
+                                {distinctCount} {distinctCount === 1 ? 'producto' : 'productos'}
+                            </Text>
+                            <Pressable 
+                                style={[styles.checkoutBtn, isClosed && { backgroundColor: '#9E9E9E' }]} 
+                                onPress={handleCheckout}
+                            >
+                                <Text style={styles.checkoutBtnText}>
+                                    {isClosed ? 'Local Cerrado Temporalmente' : 'Enviar pedido'}
+                                </Text>
+                            </Pressable>
                         </View>
-                        <Text style={styles.itemCountText}>
-                            {distinctCount} {distinctCount === 1 ? 'producto' : 'productos'}
-                        </Text>
-                        <Pressable style={styles.checkoutBtn} onPress={handleCheckout}>
-                            <Text style={styles.checkoutBtnText}>Enviar pedido</Text>
-                        </Pressable>
-                    </View>
                 </View>
             )}
         </>
