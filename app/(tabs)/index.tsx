@@ -22,6 +22,7 @@ import StickyCategoryTabs from '@/components/StickyCategoryTabs';
 import SearchBar from '@/components/SearchBar';
 import EmptyState from '@/components/EmptyState';
 import HeroHeader from '@/components/HeroHeader';
+import ClosedBanner from '@/components/ClosedBanner';
 import { SkeletonGrid } from '@/components/ProductSkeleton';
 import { useCartStore } from '@/stores/cartStore';
 import { formatPrice } from '@/utils/format';
@@ -114,6 +115,7 @@ export default function HomeScreen() {
     const renderHeader = () => (
         <View style={styles.headerWrapper}>
             <HeroHeader />
+            <ClosedBanner />
 
             {/* MODULO PEDIR COMIDA (Kiosk) */}
             <Pressable
