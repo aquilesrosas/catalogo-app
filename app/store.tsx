@@ -28,17 +28,18 @@ export default function StoreScreen() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [storeData, offersData] = await Promise.all([
-                getStoreConfig(),
-                getActiveOffers(),
-            ]);
+            const storeData = await getStoreConfig();
             setConfig(storeData);
-            setPromos(offersData.slice(0, 3)); // Top 3 promos
         } catch (e) {
-            console.error('Error loading store data:', e);
-        } finally {
-            setLoading(false);
+            console.error('Error loading store config:', e);
         }
+        try {
+            const offersData = await getActiveOffers();
+            setPromos(offersData.slice(0, 3));
+        } catch {
+            // Offers are non-critical
+        }
+        setLoading(false);
     };
 
     const cc = config?.catalog_config || {};

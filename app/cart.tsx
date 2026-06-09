@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -10,9 +10,9 @@ import {
 import { Image } from 'expo-image';
 import { useRouter, Stack } from 'expo-router';
 import { useCartStore, CartItem } from '@/stores/cartStore';
-import { useConfigStore } from '@/stores/configStore';
 import { formatPrice } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
+import { getStoreConfig } from '@/services/api';
 
 function CartItemCard({ item }: { item: CartItem }) {
     const { updateQuantity, removeItem } = useCartStore();
@@ -85,9 +85,14 @@ function CartItemCard({ item }: { item: CartItem }) {
 
 export default function CartScreen() {
     const { items, getTotal, getItemCount, clearCart } = useCartStore();
-    const config = useConfigStore((s: any) => s);
-    const isClosed = config.catalog_config?.is_closed === true;
     const router = useRouter();
+    const [isClosed, setIsClosed] = useState(false);
+
+    useEffect(() => {
+        getStoreConfig()
+            .then((cfg) => setIsClosed(cfg.catalog_config?.is_closed === true))
+            .catch(() => {});
+    }, []);
 
     const handleCheckout = () => {
         if (isClosed) {

@@ -42,6 +42,7 @@ export default function CheckoutScreen() {
     const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number | null>(null);
     const [storeLocation, setStoreLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [outOfRange, setOutOfRange] = useState(false);
+    const [isStoreClosed, setIsStoreClosed] = useState(false);
 
     // ─── Mercado Pago State ───
     const [mpWaiting, setMpWaiting] = useState(false);
@@ -126,12 +127,13 @@ export default function CheckoutScreen() {
         })();
     }, [tipoEntrega]);
 
-    // Fetch store config for transfer details and delivery radius
+    // Fetch store config for transfer details, delivery radius and closed state
     useEffect(() => {
         (async () => {
             try {
                 const config = await getStoreConfig();
                 const cc = config.catalog_config || {};
+                setIsStoreClosed(cc.is_closed === true);
                 setTransferAlias((cc.transfer_alias as string) || '');
                 setTransferCbu((cc.transfer_cbu as string) || '');
                 setTransferHolder((cc.transfer_holder as string) || '');
@@ -198,6 +200,12 @@ export default function CheckoutScreen() {
 
     const handleSubmit = async () => {
         console.log('[Checkout] handleSubmit called');
+
+        if (isStoreClosed) {
+            showAlert('Local Cerrado', 'En este momento el local no está recibiendo pedidos. Intentá más tarde.');
+            return;
+        }
+
         // Validation
         const trimmedName = name.trim();
         const trimmedPhone = phone.trim();
