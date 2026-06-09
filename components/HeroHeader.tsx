@@ -1,14 +1,26 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useConfigStore } from '@/stores/configStore';
+import { getStoreConfig, StoreConfig } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HeroHeader() {
-    const config = useConfigStore((s: any) => s);
-    const primaryColor = config.primary_color || '#D32F2F';
+    const localConfig = useConfigStore((s: any) => s);
+    const [storeConfig, setStoreConfig] = useState<StoreConfig | null>(null);
     const insets = useSafeAreaInsets();
+
+    useEffect(() => {
+        getStoreConfig()
+            .then(setStoreConfig)
+            .catch(() => {});
+    }, []);
+
+    const name = storeConfig?.name || localConfig.name || 'Catálogo';
+    const primaryColor = storeConfig?.primary_color || localConfig.primary_color || '#D32F2F';
+    const logoUrl = storeConfig?.logo_url || localConfig.logo_url;
+    const isClosed = storeConfig?.catalog_config?.is_closed === true;
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -21,11 +33,11 @@ export default function HeroHeader() {
             <View style={styles.content}>
                 {/* Logo */}
                 <View style={styles.logoContainer}>
-                    {config.logo_url ? (
-                        <Image source={{ uri: config.logo_url }} style={styles.logo} />
+                    {logoUrl ? (
+                        <Image source={{ uri: logoUrl }} style={styles.logo} />
                     ) : (
                         <View style={[styles.logoPlaceholder, { backgroundColor: primaryColor }]}>
-                            <Text style={styles.logoText}>{config.name?.charAt(0) || 'C'}</Text>
+                            <Text style={styles.logoText}>{name?.charAt(0) || 'C'}</Text>
                         </View>
                     )}
                 </View>
@@ -33,8 +45,8 @@ export default function HeroHeader() {
                 {/* Info */}
                 <View style={styles.infoContainer}>
                     <View style={styles.titleRow}>
-                        <Text style={styles.title} numberOfLines={1}>{config.name || 'Catálogo'}</Text>
-                        {config.catalog_config?.is_closed ? (
+                        <Text style={styles.title} numberOfLines={1}>{name}</Text>
+                        {isClosed ? (
                             <View style={[styles.badge, { backgroundColor: 'rgba(211, 47, 47, 0.9)' }]}>
                                 <Text style={styles.badgeText}>CERRADO</Text>
                             </View>

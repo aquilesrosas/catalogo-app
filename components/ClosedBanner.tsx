@@ -1,14 +1,26 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useConfigStore } from '@/stores/configStore';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { getStoreConfig, StoreConfig } from '@/services/api';
 
 export default function ClosedBanner() {
-    const config = useConfigStore((s: any) => s);
-    const isClosed = config.catalog_config?.is_closed === true;
+    const [config, setConfig] = useState<StoreConfig | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        getStoreConfig()
+            .then(setConfig)
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (loading || !config) return null;
+
+    const cc = config.catalog_config || {};
+    const isClosed = cc.is_closed === true;
 
     if (!isClosed) return null;
 
-    const timeRanges = config.catalog_config?.time_ranges || [];
+    const timeRanges = (cc.time_ranges as Array<{ start: string; end: string }>) || [];
     const storeAddress = config.store_address || '';
 
     return (
@@ -17,22 +29,20 @@ export default function ClosedBanner() {
             <Text style={styles.title}>Local Cerrado</Text>
             <Text style={styles.subtitle}>En este momento no estamos recibiendo pedidos.</Text>
             
-            <View style={styles.infoBox}>
-                <Text style={styles.infoTitle}>Nuestros horarios de atención:</Text>
-                {timeRanges.length > 0 ? (
-                    timeRanges.map((range: any, idx: number) => (
+            {timeRanges.length > 0 && (
+                <View style={styles.infoBox}>
+                    <Text style={styles.infoTitle}>🕐 Nuestros horarios de atención:</Text>
+                    {timeRanges.map((range, idx) => (
                         <Text key={idx} style={styles.infoText}>
-                            • {range.start} a {range.end}
+                            • {range.start} a {range.end} hs
                         </Text>
-                    ))
-                ) : (
-                    <Text style={styles.infoText}>Consultar horarios</Text>
-                )}
-            </View>
+                    ))}
+                </View>
+            )}
 
             {storeAddress ? (
                 <View style={styles.addressBox}>
-                    <Text style={styles.addressTitle}>Encontranos en:</Text>
+                    <Text style={styles.addressTitle}>📍 Encontranos en:</Text>
                     <Text style={styles.addressText}>{storeAddress}</Text>
                 </View>
             ) : null}
