@@ -61,6 +61,9 @@ export default function CheckoutScreen() {
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
+    // ─── Catalog feature flags ───
+    const [showMesaDelivery, setShowMesaDelivery] = useState(true);
+
     // ─── Transfer Details State ───
     const [transferAlias, setTransferAlias] = useState('');
     const [transferCbu, setTransferCbu] = useState('');
@@ -138,6 +141,7 @@ export default function CheckoutScreen() {
                 setTransferCbu((cc.transfer_cbu as string) || '');
                 setTransferHolder((cc.transfer_holder as string) || '');
                 setWhatsappPhone((cc.whatsapp_phone as string) || '');
+                setShowMesaDelivery(cc.show_mesa_delivery !== false);
                 if (cc.delivery_radius_km) {
                     setDeliveryRadiusKm(Number(cc.delivery_radius_km));
                 }
@@ -494,6 +498,7 @@ export default function CheckoutScreen() {
                                 Envío
                             </Text>
                         </Pressable>
+                        {showMesaDelivery && (
                         <Pressable
                             style={[
                                 styles.paymentOption,
@@ -506,6 +511,7 @@ export default function CheckoutScreen() {
                                 A la Cancha / Mesa
                             </Text>
                         </Pressable>
+                        )}
                     </View>
 
                     {tipoEntrega === 'MESA' && (

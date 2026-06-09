@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useConfigStore } from '@/stores/configStore';
+import { getStoreConfig } from '@/services/api';
 
 // ─── Custom Tab Bar ──────────────────────────
 function CustomTabBar({ state, descriptors, navigation }: any) {
     const count = useCartStore((s) => s.getItemCount());
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const showClasesTab = useConfigStore((s) => s.showClasesTab);
 
     return (
         <View style={[tabBarStyles.container, { paddingBottom: insets.bottom }]}>
@@ -17,6 +20,9 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                 {state.routes.map((route: any, index: number) => {
                     const { options } = descriptors[route.key];
                     const isFocused = state.index === index;
+
+                    // ── Hide Clases tab if disabled ──
+                    if (route.name === 'classes' && !showClasesTab) return null;
 
                     // ── Cart Button (center) ──
                     if (route.name === '_cart_placeholder') {
@@ -87,6 +93,17 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 export default function TabsLayout() {
     const { isLoggedIn, clientName } = useAuthStore();
     const initial = isLoggedIn() && clientName ? clientName[0].toUpperCase() : null;
+    const setShowClasesTab = useConfigStore((s) => s.setShowClasesTab);
+    const setShowMesaDelivery = useConfigStore((s) => s.setShowMesaDelivery);
+
+    // Sync feature flags from server on mount
+    useEffect(() => {
+        getStoreConfig().then((config) => {
+            const cc = (config.catalog_config || {}) as Record<string, unknown>;
+            setShowClasesTab(cc.show_clases_tab !== false);
+            setShowMesaDelivery(cc.show_mesa_delivery !== false);
+        }).catch(() => {});
+    }, []);
 
     return (
         <Tabs
