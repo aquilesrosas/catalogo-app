@@ -15,6 +15,7 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useLastOrderStore } from '@/stores/lastOrderStore';
 import { formatPrice } from '@/utils/format';
 import { createOrder, getAvailableSlots, checkPaymentStatus, getStoreConfig, AttendanceSlot } from '@/services/api';
 import * as Clipboard from 'expo-clipboard';
@@ -26,6 +27,7 @@ type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'MIXTO' | 'MERCADOPAGO';
 export default function CheckoutScreen() {
     const { items, getTotal, clearCart } = useCartStore();
     const { isLoggedIn, clientName, clientPhone, clientPoints, setPoints } = useAuthStore();
+    const setLastOrder = useLastOrderStore((s) => s.setOrder);
     const router = useRouter();
     const logged = isLoggedIn();
 
@@ -325,12 +327,26 @@ export default function CheckoutScreen() {
                             // Pago confirmado!
                             if (pollingRef.current) clearInterval(pollingRef.current);
                             clearCart();
-                            showAlert(
-                                '✅ ¡Pago confirmado!',
-                                `Tu pedido #${orderId} fue pagado exitosamente con Mercado Pago.\nTotal: ${formatPrice(result.order?.total || total)}`,
-                                () => router.replace('/')
-                            );
                             setMpWaiting(false);
+                            // Guardar datos del pedido y navegar a confirmación
+                            const mpOrder = result?.order || result;
+                            if (mpOrder && typeof mpOrder === 'object') {
+                                setLastOrder({
+                                    id: mpOrder.id ?? orderId ?? 0,
+                                    order_number: mpOrder.order_number ?? null,
+                                    total: String(mpOrder.total ?? total),
+                                    payment_method: 'MERCADOPAGO',
+                                    delivery_type: mpOrder.delivery_type ?? tipoEntrega,
+                                    direccion_envio: mpOrder.direccion_envio ?? direccion,
+                                    is_scheduled: mpOrder.is_scheduled ?? isScheduled,
+                                    scheduled_at: mpOrder.scheduled_at ?? null,
+                                    items: Array.isArray(mpOrder.items) ? mpOrder.items : [],
+                                    created_at: mpOrder.created_at ?? new Date().toISOString(),
+                                    points_redeemed: mpOrder.points_redeemed ?? 0,
+                                    points_discount: String(mpOrder.points_discount ?? '0'),
+                                });
+                            }
+                            router.replace('/order/confirmation');
                         } else if (status.payment_status === 'FAILED' || status.payment_status === 'EXPIRED') {
                             if (pollingRef.current) clearInterval(pollingRef.current);
                             showAlert(
@@ -350,6 +366,25 @@ export default function CheckoutScreen() {
                         clearInterval(pollingRef.current);
                         clearCart();
                         setMpWaiting(false);
+                        // Igual navegar a confirmación — el pedido existe aunque el pago esté pendiente
+                        const mpOrderTimeout = result?.order || result;
+                        if (mpOrderTimeout && typeof mpOrderTimeout === 'object') {
+                            setLastOrder({
+                                id: mpOrderTimeout.id ?? orderId ?? 0,
+                                order_number: mpOrderTimeout.order_number ?? null,
+                                total: String(mpOrderTimeout.total ?? total),
+                                payment_method: 'MERCADOPAGO',
+                                delivery_type: mpOrderTimeout.delivery_type ?? tipoEntrega,
+                                direccion_envio: mpOrderTimeout.direccion_envio ?? direccion,
+                                is_scheduled: mpOrderTimeout.is_scheduled ?? isScheduled,
+                                scheduled_at: mpOrderTimeout.scheduled_at ?? null,
+                                items: Array.isArray(mpOrderTimeout.items) ? mpOrderTimeout.items : [],
+                                created_at: mpOrderTimeout.created_at ?? new Date().toISOString(),
+                                points_redeemed: mpOrderTimeout.points_redeemed ?? 0,
+                                points_discount: String(mpOrderTimeout.points_discount ?? '0'),
+                            });
+                        }
+                        router.replace('/order/confirmation');
                     }
                 }, 5 * 60 * 1000);
 
@@ -361,15 +396,26 @@ export default function CheckoutScreen() {
 
             // Handle different response formats from backend
             const order = result?.order || result;
-            const orderId = order?.id || (order as any)?.id_pedido || '?';
-            const orderTotal = order?.total || total;
-            const orderMessage = result?.message || 'Pedido creado exitosamente';
 
-            showAlert(
-                '✅ ¡Pedido enviado!',
-                `Pedido #${orderId}\n${orderMessage}\n\nTotal: ${formatPrice(orderTotal)}`,
-                () => router.replace('/')
-            );
+            // Guardar datos del pedido para mostrar en pantalla de confirmación
+            if (order && typeof order === 'object') {
+                setLastOrder({
+                    id: order.id ?? 0,
+                    order_number: order.order_number ?? null,
+                    total: String(order.total ?? total),
+                    payment_method: order.payment_method ?? paymentMethod,
+                    delivery_type: order.delivery_type ?? tipoEntrega,
+                    direccion_envio: order.direccion_envio ?? direccion,
+                    is_scheduled: order.is_scheduled ?? isScheduled,
+                    scheduled_at: order.scheduled_at ?? null,
+                    items: Array.isArray(order.items) ? order.items : [],
+                    created_at: order.created_at ?? new Date().toISOString(),
+                    points_redeemed: order.points_redeemed ?? 0,
+                    points_discount: String(order.points_discount ?? '0'),
+                });
+            }
+
+            router.replace('/order/confirmation');
         } catch (err: any) {
             console.error('[Checkout] Error sending order:', err);
             console.error('[Checkout] Response data:', JSON.stringify(err?.response?.data));
