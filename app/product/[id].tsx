@@ -10,7 +10,7 @@ import {
     Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { getProduct, Product } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 import { useCartStore } from '@/stores/cartStore';
@@ -18,6 +18,7 @@ import StockBadge from '@/components/StockBadge';
 
 export default function ProductDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
+    const router = useRouter();
     const [product, setProduct] = useState<Product | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -26,6 +27,7 @@ export default function ProductDetailScreen() {
 
     const addItem = useCartStore((s) => s.addItem);
     const cartItem = useCartStore((s) => s.getItem(String(id)));
+    const cartCount = useCartStore((s) => s.getItemCount());
 
     useEffect(() => {
         loadProduct();
@@ -71,7 +73,7 @@ export default function ProductDetailScreen() {
         Keyboard.dismiss();
         addItem(product, parsedQty);
         setAdded(true);
-        setTimeout(() => setAdded(false), 1500);
+        setTimeout(() => setAdded(false), 2000);
     };
 
     if (loading) {
@@ -100,7 +102,26 @@ export default function ProductDetailScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: product.nombre_producto }} />
+            <Stack.Screen
+                options={{
+                    title: product.nombre_producto,
+                    headerRight: () => (
+                        <Pressable
+                            onPress={() => router.push('/cart' as any)}
+                            style={styles.headerCartBtn}
+                        >
+                            <Text style={styles.headerCartIcon}>🛒</Text>
+                            {cartCount > 0 && (
+                                <View style={styles.cartBadge}>
+                                    <Text style={styles.cartBadgeText}>
+                                        {cartCount > 9 ? '9+' : cartCount}
+                                    </Text>
+                                </View>
+                            )}
+                        </Pressable>
+                    ),
+                }}
+            />
             <ScrollView style={styles.container} bounces={false} keyboardShouldPersistTaps="handled">
                 {/* Image */}
                 <View style={styles.imageContainer}>
@@ -221,12 +242,24 @@ export default function ProductDetailScreen() {
                             {!product.in_stock
                                 ? 'Sin stock'
                                 : added
-                                    ? '✅ Agregado!'
+                                    ? '✅ ¡Agregado!'
                                     : parsedQty <= 0
                                         ? 'Ingresá una cantidad'
                                         : `🛒 Agregar ${qtyText} ${isByWeight ? unit : (parsedQty === 1 ? 'unidad' : 'unidades')} al carrito`}
                         </Text>
                     </Pressable>
+
+                    {/* Botón "Ir al carrito" — visible cuando hay ítems en el carrito */}
+                    {cartCount > 0 && (
+                        <Pressable
+                            style={styles.goToCartBtn}
+                            onPress={() => router.push('/cart' as any)}
+                        >
+                            <Text style={styles.goToCartText}>
+                                Ver carrito ({cartCount} {cartCount === 1 ? 'ítem' : 'ítems'}) →
+                            </Text>
+                        </Pressable>
+                    )}
                 </View>
             </ScrollView>
         </>
@@ -406,6 +439,48 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
+    },
+    // "Ir al carrito" button
+    goToCartBtn: {
+        backgroundColor: '#E8F5E9',
+        borderWidth: 1.5,
+        borderColor: '#2E7D32',
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginTop: 10,
+        marginBottom: 12,
+    },
+    goToCartText: {
+        color: '#1B5E20',
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    // Header cart icon
+    headerCartBtn: {
+        marginRight: 4,
+        padding: 6,
+        position: 'relative',
+    },
+    headerCartIcon: {
+        fontSize: 24,
+    },
+    cartBadge: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        backgroundColor: '#E53935',
+        borderRadius: 9,
+        minWidth: 18,
+        height: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 3,
+    },
+    cartBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '800',
     },
     errorIcon: {
         fontSize: 48,
