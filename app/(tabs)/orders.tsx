@@ -6,6 +6,7 @@ import {
     FlatList,
     ActivityIndicator,
     RefreshControl,
+    Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getUserOrders } from '@/services/api';
@@ -24,13 +25,18 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
 };
 
 export default function OrdersScreen() {
-    const { clientPhone } = useAuthStore();
+    const router = useRouter();
+    const { clientPhone, isLoggedIn } = useAuthStore();
+    const loggedIn = isLoggedIn();
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     const fetchOrders = async () => {
-        if (!clientPhone) return;
+        if (!clientPhone) {
+            setLoading(false);
+            return;
+        }
         try {
             const data = await getUserOrders(clientPhone);
             setOrders(data);
@@ -44,7 +50,7 @@ export default function OrdersScreen() {
 
     useEffect(() => {
         fetchOrders();
-    }, []);
+    }, [loggedIn]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -183,6 +189,27 @@ export default function OrdersScreen() {
         );
     };
 
+    // ── No logueado ──────────────────────────────────────────
+    if (!loggedIn) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.center}>
+                    <Text style={{ fontSize: 56, marginBottom: 8 }}>📋</Text>
+                    <Text style={styles.emptyTitle}>Tus pedidos aparecen acá</Text>
+                    <Text style={styles.emptySubtitle}>
+                        Iniciá sesión con tu número de teléfono para ver el historial de tus compras.
+                    </Text>
+                    <Pressable
+                        style={styles.loginBtn}
+                        onPress={() => router.push('/(tabs)/profile' as any)}
+                    >
+                        <Text style={styles.loginBtnText}>📱 Iniciar sesión</Text>
+                    </Pressable>
+                </View>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
 
@@ -229,6 +256,18 @@ const styles = StyleSheet.create({
     loadingText: {
         fontSize: 14,
         color: '#666',
+    },
+    loginBtn: {
+        marginTop: 20,
+        backgroundColor: '#1B5E20',
+        paddingHorizontal: 32,
+        paddingVertical: 14,
+        borderRadius: 12,
+    },
+    loginBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
     },
     listContent: {
         padding: 16,
