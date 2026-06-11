@@ -127,12 +127,16 @@ function RootLayoutContent() {
     const router = useRouter();
 
     // ── Auto-configure from URL query params (Facebook Ads deep links) ──
-    // Supports: ?store=slug  and  ?store=slug&product=42
+    // Supports:
+    //   ?store=slug                  → abre el catálogo
+    //   ?store=slug&product=42       → abre el producto 42
+    //   ?store=slug&page=cart        → abre el carrito
     useEffect(() => {
         if (typeof window === 'undefined') return; // Only on web
         const params = new URLSearchParams(window.location.search);
         const storeSlug = params.get('store');
         const productId = params.get('product');
+        const page = params.get('page');
 
         if (storeSlug) {
             // Auto-set the tenant slug from the URL
@@ -142,12 +146,17 @@ function RootLayoutContent() {
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, '', cleanUrl);
 
-            // If a product ID was specified, navigate to it after a short delay
+            // Navigate after a short delay to let the store hydrate
             if (productId) {
                 setTimeout(() => {
                     router.replace(`/product/${productId}` as any);
                 }, 500);
+            } else if (page === 'cart') {
+                setTimeout(() => {
+                    router.replace('/cart' as any);
+                }, 500);
             }
+            // else: stay on home (catalog)
         }
     }, []);
 
@@ -211,6 +220,15 @@ function RootLayoutContent() {
                     options={{
                         title: 'Confirmar pedido',
                         headerBackTitle: 'Carrito',
+                    }}
+                />
+                <Stack.Screen
+                    name="order/confirmation"
+                    options={{
+                        title: '✅ Pedido confirmado',
+                        headerBackVisible: false,
+                        gestureEnabled: false,
+                        animation: 'fade',
                     }}
                 />
                 <Stack.Screen
