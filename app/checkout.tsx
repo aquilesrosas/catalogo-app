@@ -154,6 +154,23 @@ export default function CheckoutScreen() {
         })();
     }, []);
 
+    // Re-validate delivery radius whenever location OR store config changes
+    // (handles race condition where config loads after map already positioned)
+    useEffect(() => {
+        if (tipoEntrega !== 'DELIVERY') return;
+        if (!deliveryRadiusKm || !storeLocation || !mapLocation) {
+            setOutOfRange(false);
+            return;
+        }
+        const toRad = (v: number) => (v * Math.PI) / 180;
+        const R = 6371;
+        const dLat = toRad(mapLocation.lat - storeLocation.lat);
+        const dLng = toRad(mapLocation.lng - storeLocation.lng);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(storeLocation.lat)) * Math.cos(toRad(mapLocation.lat)) * Math.sin(dLng / 2) ** 2;
+        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        setOutOfRange(dist > deliveryRadiusKm);
+    }, [deliveryRadiusKm, storeLocation, mapLocation, tipoEntrega]);
+
     // Auto-fill from auth store
     useEffect(() => {
         if (logged && clientName) setName(clientName);
