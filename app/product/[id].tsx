@@ -256,10 +256,18 @@ export default function ProductDetailScreen() {
                             onPress={() => router.push('/cart' as any)}
                         >
                             <Text style={styles.goToCartText}>
-                                Ver carrito ({cartCount} {cartCount === 1 ? 'ítem' : 'ítems'}) →
+                                🛒 Ver carrito ({cartCount} {cartCount === 1 ? 'ítem' : 'ítems'}) →
                             </Text>
                         </Pressable>
                     )}
+
+                    {/* Botón para volver al catálogo y seguir pidiendo */}
+                    <Pressable
+                        style={styles.keepShoppingBtn}
+                        onPress={() => router.replace('/' as any)}
+                    >
+                        <Text style={styles.keepShoppingText}>🏪 Ver más productos</Text>
+                    </Pressable>
                 </View>
             </ScrollView>
         </>
@@ -439,6 +447,20 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
+    },
+    // "Ver más productos" button
+    keepShoppingBtn: {
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginTop: 6,
+        marginBottom: 32,
+    },
+    keepShoppingText: {
+        color: '#666',
+        fontSize: 14,
+        fontWeight: '600',
+        textDecorationLine: 'underline',
     },
     // "Ir al carrito" button
     goToCartBtn: {
