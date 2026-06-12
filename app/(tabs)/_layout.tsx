@@ -26,6 +26,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                     if (route.name === 'classes' && !showClasesTab) return null;
                     // ── Hide Barber tab unless booking_mode = 'barber' ──
                     if (route.name === 'barber' && bookingMode !== 'barber') return null;
+                    // ── Hide Estetica tab unless booking_mode = 'estetica' ──
+                    if (route.name === 'estetica' && bookingMode !== 'estetica') return null;
 
                     // ── Cart Button (center) ──
                     if (route.name === '_cart_placeholder') {
@@ -150,6 +152,14 @@ export default function TabsLayout() {
                     title: '💈 Barbería',
                     tabBarLabel: 'Barbería',
                     tabBarIcon: ({ focused }) => <TabIcon emoji="💈" focused={focused} />,
+                }}
+            />
+            <Tabs.Screen
+                name="estetica"
+                options={{
+                    title: '💅 Estética',
+                    tabBarLabel: 'Estética',
+                    tabBarIcon: ({ focused }) => <TabIcon emoji="💅" focused={focused} />,
                 }}
             />
             <Tabs.Screen
