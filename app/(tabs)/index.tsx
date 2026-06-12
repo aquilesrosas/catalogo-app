@@ -193,57 +193,83 @@ export default function HomeScreen() {
     // ── Booking mode: show welcome splash instead of product catalog ──────────
     if (bookingMode === 'barber' || bookingMode === 'estetica' || bookingMode === 'dance') {
         const MODES: Record<string, { emoji: string; label: string; desc: string; color: string; tab: string }> = {
-            barber:   { emoji: '💈', label: 'Barbería',          desc: 'Reservá tu turno online de forma rápida y sencilla.',       color: '#1B5E20', tab: '/barber' },
-            estetica: { emoji: '💅', label: 'Centro de Estética', desc: 'Elegí tu tratamiento, especialista y horario ideal.',        color: '#C2185B', tab: '/estetica' },
-            dance:    { emoji: '🩰', label: 'Academia de Baile',  desc: 'Mirá las clases disponibles e inscribite en segundos.',      color: '#6A1B9A', tab: '/classes' },
+            barber:   { emoji: '💈', label: 'Barbería',           desc: 'Reservá tu turno online de forma rápida y sencilla.',  color: '#1B5E20', tab: '/barber' },
+            estetica: { emoji: '💅', label: 'Centro de Estética', desc: 'Elegí tu tratamiento, especialista y horario ideal.',  color: '#C2185B', tab: '/estetica' },
+            dance:    { emoji: '🩰', label: 'Academia de Baile',  desc: 'Mirá las clases disponibles e inscribite en segundos.',color: '#6A1B9A', tab: '/classes' },
         };
         const mode = MODES[bookingMode];
-        return (
-            <View style={[styles.container, { backgroundColor: '#F9F9F9' }]}>
-                <HeroHeader />
-                <View style={{ padding: 24, alignItems: 'center', flex: 1, justifyContent: 'center' }}>
-                    {/* Big emoji */}
-                    <View style={{
-                        width: 100, height: 100, borderRadius: 50,
-                        backgroundColor: mode.color + '18',
-                        justifyContent: 'center', alignItems: 'center', marginBottom: 20,
-                    }}>
-                        <Text style={{ fontSize: 52 }}>{mode.emoji}</Text>
-                    </View>
+        // storeName from configStore (already loaded by _layout.tsx's getStoreConfig call)
+        const storeName = useConfigStore.getState().name || '';
 
-                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, textAlign: 'center' }}>
+        return (
+            <View style={[styles.container, { backgroundColor: '#F5F5F5' }]}>
+                {/* Hero band — plain colored strip, no absolute positioning */}
+                <View style={{
+                    backgroundColor: mode.color,
+                    paddingTop: insets.top + 20,
+                    paddingBottom: 48,
+                    alignItems: 'center',
+                }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: '600', marginBottom: 4 }}>
+                        {storeName}
+                    </Text>
+                    <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>
                         {mode.label}
                     </Text>
-                    <Text style={{ fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
-                        {mode.desc}
-                    </Text>
+                </View>
 
-                    {/* CTA */}
-                    <Pressable
-                        style={{
-                            backgroundColor: mode.color, borderRadius: 16,
-                            paddingVertical: 18, paddingHorizontal: 40,
-                            shadowColor: mode.color, shadowOffset: { width: 0, height: 6 },
-                            shadowOpacity: 0.35, shadowRadius: 10, elevation: 8,
-                            width: '100%', alignItems: 'center',
-                        }}
-                        onPress={() => router.push(mode.tab as any)}
-                    >
-                        <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
-                            {mode.emoji} Reservar turno
-                        </Text>
-                    </Pressable>
+                {/* Card floating over the hero */}
+                <View style={{ marginHorizontal: 24, marginTop: -32 }}>
+                    <View style={{
+                        backgroundColor: '#fff', borderRadius: 20,
+                        padding: 28, alignItems: 'center',
+                        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.10, shadowRadius: 16, elevation: 8,
+                    }}>
+                        {/* Big emoji */}
+                        <View style={{
+                            width: 88, height: 88, borderRadius: 44,
+                            backgroundColor: mode.color + '15',
+                            justifyContent: 'center', alignItems: 'center', marginBottom: 16,
+                        }}>
+                            <Text style={{ fontSize: 46 }}>{mode.emoji}</Text>
+                        </View>
 
-                    {/* Secondary: my appointments */}
-                    <Pressable
-                        style={{ marginTop: 16, paddingVertical: 14, width: '100%', alignItems: 'center',
-                                 borderRadius: 12, borderWidth: 1.5, borderColor: mode.color + '60' }}
-                        onPress={() => router.push(mode.tab as any)}
-                    >
-                        <Text style={{ color: mode.color, fontSize: 15, fontWeight: '700' }}>
-                            📋 Ver mis turnos
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, textAlign: 'center' }}>
+                            {mode.label}
                         </Text>
-                    </Pressable>
+                        <Text style={{ fontSize: 14, color: '#777', textAlign: 'center', lineHeight: 21, marginBottom: 28 }}>
+                            {mode.desc}
+                        </Text>
+
+                        {/* CTA primario */}
+                        <Pressable
+                            style={{
+                                backgroundColor: mode.color, borderRadius: 14,
+                                paddingVertical: 16, width: '100%', alignItems: 'center',
+                                shadowColor: mode.color, shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: 0.30, shadowRadius: 8, elevation: 6,
+                            }}
+                            onPress={() => router.push(mode.tab as any)}
+                        >
+                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>
+                                {mode.emoji} Reservar turno
+                            </Text>
+                        </Pressable>
+
+                        {/* CTA secundario */}
+                        <Pressable
+                            style={{
+                                marginTop: 12, paddingVertical: 14, width: '100%', alignItems: 'center',
+                                borderRadius: 14, borderWidth: 1.5, borderColor: mode.color + '55',
+                            }}
+                            onPress={() => router.push(mode.tab as any)}
+                        >
+                            <Text style={{ color: mode.color, fontSize: 15, fontWeight: '700' }}>
+                                📋 Ver mis turnos
+                            </Text>
+                        </Pressable>
+                    </View>
                 </View>
             </View>
         );
