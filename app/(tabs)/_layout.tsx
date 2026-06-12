@@ -13,6 +13,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const showClasesTab = useConfigStore((s) => s.showClasesTab);
+    const bookingMode = useConfigStore((s) => s.bookingMode);
 
     return (
         <View style={[tabBarStyles.container, { paddingBottom: insets.bottom }]}>
@@ -23,6 +24,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 
                     // ── Hide Clases tab if disabled ──
                     if (route.name === 'classes' && !showClasesTab) return null;
+                    // ── Hide Barber tab unless booking_mode = 'barber' ──
+                    if (route.name === 'barber' && bookingMode !== 'barber') return null;
 
                     // ── Cart Button (center) ──
                     if (route.name === '_cart_placeholder') {
@@ -139,6 +142,14 @@ export default function TabsLayout() {
                     title: '🩰 Clases',
                     tabBarLabel: 'Clases',
                     tabBarIcon: ({ focused }) => <TabIcon emoji="🩰" focused={focused} />,
+                }}
+            />
+            <Tabs.Screen
+                name="barber"
+                options={{
+                    title: '💈 Barbería',
+                    tabBarLabel: 'Barbería',
+                    tabBarIcon: ({ focused }) => <TabIcon emoji="💈" focused={focused} />,
                 }}
             />
             <Tabs.Screen
