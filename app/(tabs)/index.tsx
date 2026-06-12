@@ -55,6 +55,7 @@ export default function HomeScreen() {
     const params = useLocalSearchParams();
     const kioskTitle = useConfigStore((s) => s.kioskTitle);
     const slug = useConfigStore((s) => s.tenantSlug);
+    const bookingMode = useConfigStore((s) => s.bookingMode);
     const { items: cartItems, getItemCount, getTotal } = useCartStore();
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const [pointsModalVisible, setPointsModalVisible] = useState(false);
@@ -188,6 +189,65 @@ export default function HomeScreen() {
             )}
         </View>
     );
+
+    // ── Booking mode: show welcome splash instead of product catalog ──────────
+    if (bookingMode === 'barber' || bookingMode === 'estetica' || bookingMode === 'dance') {
+        const MODES: Record<string, { emoji: string; label: string; desc: string; color: string; tab: string }> = {
+            barber:   { emoji: '💈', label: 'Barbería',          desc: 'Reservá tu turno online de forma rápida y sencilla.',       color: '#1B5E20', tab: '/barber' },
+            estetica: { emoji: '💅', label: 'Centro de Estética', desc: 'Elegí tu tratamiento, especialista y horario ideal.',        color: '#C2185B', tab: '/estetica' },
+            dance:    { emoji: '🩰', label: 'Academia de Baile',  desc: 'Mirá las clases disponibles e inscribite en segundos.',      color: '#6A1B9A', tab: '/classes' },
+        };
+        const mode = MODES[bookingMode];
+        return (
+            <View style={[styles.container, { backgroundColor: '#F9F9F9' }]}>
+                <HeroHeader />
+                <View style={{ padding: 24, alignItems: 'center', flex: 1, justifyContent: 'center' }}>
+                    {/* Big emoji */}
+                    <View style={{
+                        width: 100, height: 100, borderRadius: 50,
+                        backgroundColor: mode.color + '18',
+                        justifyContent: 'center', alignItems: 'center', marginBottom: 20,
+                    }}>
+                        <Text style={{ fontSize: 52 }}>{mode.emoji}</Text>
+                    </View>
+
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, textAlign: 'center' }}>
+                        {mode.label}
+                    </Text>
+                    <Text style={{ fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
+                        {mode.desc}
+                    </Text>
+
+                    {/* CTA */}
+                    <Pressable
+                        style={{
+                            backgroundColor: mode.color, borderRadius: 16,
+                            paddingVertical: 18, paddingHorizontal: 40,
+                            shadowColor: mode.color, shadowOffset: { width: 0, height: 6 },
+                            shadowOpacity: 0.35, shadowRadius: 10, elevation: 8,
+                            width: '100%', alignItems: 'center',
+                        }}
+                        onPress={() => router.push(mode.tab as any)}
+                    >
+                        <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
+                            {mode.emoji} Reservar turno
+                        </Text>
+                    </Pressable>
+
+                    {/* Secondary: my appointments */}
+                    <Pressable
+                        style={{ marginTop: 16, paddingVertical: 14, width: '100%', alignItems: 'center',
+                                 borderRadius: 12, borderWidth: 1.5, borderColor: mode.color + '60' }}
+                        onPress={() => router.push(mode.tab as any)}
+                    >
+                        <Text style={{ color: mode.color, fontSize: 15, fontWeight: '700' }}>
+                            📋 Ver mis turnos
+                        </Text>
+                    </Pressable>
+                </View>
+            </View>
+        );
+    }
 
     if (loading && products.length === 0) {
         return (
