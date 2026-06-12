@@ -12,6 +12,8 @@ interface ConfigState {
     // Catalog feature flags (from server catalog_config)
     showClasesTab: boolean;
     showMesaDelivery: boolean;
+    // '' = catálogo de productos normal | 'dance' = academia de baile
+    bookingMode: string;
     isConfigured: () => boolean;
     setTenantSlug: (slug: string) => void;
     clearConfig: () => void;
@@ -20,6 +22,7 @@ interface ConfigState {
     setKioskTitle: (title: string) => void;
     setShowClasesTab: (val: boolean) => void;
     setShowMesaDelivery: (val: boolean) => void;
+    setBookingMode: (val: string) => void;
 }
 
 export const useConfigStore = create<ConfigState>()(
@@ -31,6 +34,7 @@ export const useConfigStore = create<ConfigState>()(
             kioskTitle: '🍔 Pedir Comida',
             showClasesTab: true,
             showMesaDelivery: true,
+            bookingMode: '',
             isConfigured: () => !!get().tenantSlug,
             setTenantSlug: (slug: string) => set({ tenantSlug: slug }),
             clearConfig: () => set({ tenantSlug: null }),
@@ -39,6 +43,7 @@ export const useConfigStore = create<ConfigState>()(
             setKioskTitle: (title: string) => set({ kioskTitle: title }),
             setShowClasesTab: (val: boolean) => set({ showClasesTab: val }),
             setShowMesaDelivery: (val: boolean) => set({ showMesaDelivery: val }),
+            setBookingMode: (val: string) => set({ bookingMode: val }),
         }),
         {
             name: 'catalogo-config',
