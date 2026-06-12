@@ -140,8 +140,8 @@ export default function EsteticaScreen() {
 
     useEffect(() => {
         api.get('/estetica/services/')
-            .then(r => setServices(r.data))
-            .catch(() => {})
+            .then(r => setServices(Array.isArray(r.data) ? r.data : []))
+            .catch(() => setServices([]))
             .finally(() => setLoadingServices(false));
     }, []);
 
@@ -149,8 +149,8 @@ export default function EsteticaScreen() {
         if (step !== 'specialist') return;
         setLoadingSpecialists(true);
         api.get('/estetica/specialists/')
-            .then(r => setSpecialists(r.data))
-            .catch(() => {})
+            .then(r => setSpecialists(Array.isArray(r.data) ? r.data : []))
+            .catch(() => setSpecialists([]))
             .finally(() => setLoadingSpecialists(false));
     }, [step]);
 
@@ -351,7 +351,7 @@ function BookingFlow({ step, setStep, services, loadingServices, specialists, lo
 
 function ServiceStep({ services, loading, onSelect }: any) {
     if (loading) return <ActivityIndicator style={{ marginTop: 40 }} color={PINK} />;
-    if (!services.length) return <EmptyState text="No hay servicios disponibles." />;
+    if (!Array.isArray(services) || !services.length) return <EmptyState text="No hay servicios disponibles." />;
 
     const sections = groupByCategory(services);
 

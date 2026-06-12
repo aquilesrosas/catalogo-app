@@ -130,8 +130,8 @@ export default function BarberScreen() {
     // ── Load services on mount ──
     useEffect(() => {
         api.get('/barber/services/')
-            .then(r => setServices(r.data))
-            .catch(() => {})
+            .then(r => setServices(Array.isArray(r.data) ? r.data : []))
+            .catch(() => setServices([]))
             .finally(() => setLoadingServices(false));
     }, []);
 
@@ -140,8 +140,8 @@ export default function BarberScreen() {
         if (step !== 'barber') return;
         setLoadingBarbers(true);
         api.get('/barber/barbers/')
-            .then(r => setBarbers(r.data))
-            .catch(() => {})
+            .then(r => setBarbers(Array.isArray(r.data) ? r.data : []))
+            .catch(() => setBarbers([]))
             .finally(() => setLoadingBarbers(false));
     }, [step]);
 
@@ -364,7 +364,7 @@ function steps_before(current: Step, target: Step): boolean {
 
 function ServiceStep({ services, loading, onSelect }: any) {
     if (loading) return <ActivityIndicator style={{ marginTop: 40 }} color="#1B5E20" />;
-    if (!services.length) return <EmptyState text="No hay servicios disponibles." />;
+    if (!Array.isArray(services) || !services.length) return <EmptyState text="No hay servicios disponibles." />;
     return (
         <ScrollView contentContainerStyle={s.listPad}>
             <Text style={s.stepTitle}>¿Qué servicio querés?</Text>
