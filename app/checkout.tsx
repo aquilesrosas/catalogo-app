@@ -435,15 +435,20 @@ export default function CheckoutScreen() {
             router.replace('/order/confirmation');
         } catch (err: any) {
             console.error('[Checkout] Error sending order:', err);
-            console.error('[Checkout] Response data:', JSON.stringify(err?.response?.data));
+            const d = err?.response?.data;
+            const extractMsg = (v: any): string =>
+                Array.isArray(v) ? v.join('\n') : (typeof v === 'string' ? v : '');
             const msg =
-                err?.response?.data?.items?.join('\n') ||
-                err?.response?.data?.detail ||
-                err?.response?.data?.error ||
-                err?.response?.data?.non_field_errors?.join('\n') ||
+                extractMsg(d?.non_field_errors) ||
+                extractMsg(d?.direccion_envio) ||
+                d?.detail ||
+                d?.error ||
+                extractMsg(d?.items) ||
                 err?.message ||
                 'Error al enviar el pedido';
-            showAlert('Error', msg);
+            const title = msg.includes('cerrado') ? 'Local cerrado' :
+                          msg.includes('cobertura') ? 'Fuera de zona' : 'Error';
+            showAlert(title, msg);
         } finally {
             setSubmitting(false);
         }
