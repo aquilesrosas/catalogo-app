@@ -275,7 +275,9 @@ export default function HomeScreen() {
         );
     }
 
-    if (loading && products.length === 0) {
+    // Only show full-page skeleton on initial cold load — not during search/filter refetches,
+    // because leaving the FlatList path would remount SearchBar and lose keyboard focus.
+    if (loading && products.length === 0 && !searchQuery && !selectedCategory) {
         return (
             <View style={styles.container}>
                 {renderHeader()}

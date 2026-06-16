@@ -17,33 +17,64 @@ export default function ClosedBanner() {
 
     const cc = config.catalog_config || {};
     const isClosed = cc.is_closed === true;
-
-    if (!isClosed) return null;
-
     const timeRanges = (cc.time_ranges as Array<{ start: string; end: string }>) || [];
     const storeAddress = config.store_address || '';
+    const deliveryTime = cc.delivery_time_minutes as number | undefined;
+
+    if (isClosed) {
+        return (
+            <View style={styles.closedContainer}>
+                <Text style={styles.closedEmoji}>🛑</Text>
+                <Text style={styles.closedTitle}>Local Cerrado</Text>
+                <Text style={styles.closedSubtitle}>En este momento no estamos recibiendo pedidos.</Text>
+
+                {timeRanges.length > 0 && (
+                    <View style={styles.infoBox}>
+                        <Text style={styles.infoTitle}>🕐 Nuestros horarios de atención:</Text>
+                        {timeRanges.map((range, idx) => (
+                            <Text key={idx} style={styles.infoText}>
+                                • {range.start} a {range.end} hs
+                            </Text>
+                        ))}
+                    </View>
+                )}
+
+                {storeAddress ? (
+                    <View style={styles.infoBox}>
+                        <Text style={styles.infoTitle}>📍 Encontranos en:</Text>
+                        <Text style={styles.infoText}>{storeAddress}</Text>
+                    </View>
+                ) : null}
+            </View>
+        );
+    }
+
+    // Open — show a compact info strip with address + hours + delivery time
+    const hasInfo = storeAddress || timeRanges.length > 0 || deliveryTime;
+    if (!hasInfo) return null;
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.emoji}>🛑</Text>
-            <Text style={styles.title}>Local Cerrado</Text>
-            <Text style={styles.subtitle}>En este momento no estamos recibiendo pedidos.</Text>
-            
+        <View style={styles.openContainer}>
+            {storeAddress ? (
+                <View style={styles.openRow}>
+                    <Text style={styles.openIcon}>📍</Text>
+                    <Text style={styles.openText}>{storeAddress}</Text>
+                </View>
+            ) : null}
+
             {timeRanges.length > 0 && (
-                <View style={styles.infoBox}>
-                    <Text style={styles.infoTitle}>🕐 Nuestros horarios de atención:</Text>
-                    {timeRanges.map((range, idx) => (
-                        <Text key={idx} style={styles.infoText}>
-                            • {range.start} a {range.end} hs
-                        </Text>
-                    ))}
+                <View style={styles.openRow}>
+                    <Text style={styles.openIcon}>🕐</Text>
+                    <Text style={styles.openText}>
+                        {timeRanges.map(r => `${r.start} – ${r.end} hs`).join('  |  ')}
+                    </Text>
                 </View>
             )}
 
-            {storeAddress ? (
-                <View style={styles.addressBox}>
-                    <Text style={styles.addressTitle}>📍 Encontranos en:</Text>
-                    <Text style={styles.addressText}>{storeAddress}</Text>
+            {deliveryTime ? (
+                <View style={styles.openRow}>
+                    <Text style={styles.openIcon}>🛵</Text>
+                    <Text style={styles.openText}>Entrega aprox. {deliveryTime} min</Text>
                 </View>
             ) : null}
         </View>
@@ -51,7 +82,8 @@ export default function ClosedBanner() {
 }
 
 const styles = StyleSheet.create({
-    container: {
+    // ── Closed ──────────────────────────────────────────────
+    closedContainer: {
         backgroundColor: '#FFF3E0',
         padding: 20,
         marginHorizontal: 16,
@@ -67,17 +99,17 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 3,
     },
-    emoji: {
+    closedEmoji: {
         fontSize: 32,
         marginBottom: 8,
     },
-    title: {
+    closedTitle: {
         fontSize: 20,
         fontWeight: 'bold',
         color: '#E65100',
         marginBottom: 4,
     },
-    subtitle: {
+    closedSubtitle: {
         fontSize: 14,
         color: '#F57C00',
         textAlign: 'center',
@@ -88,7 +120,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFE0B2',
         padding: 12,
         borderRadius: 12,
-        marginBottom: 12,
+        marginBottom: 8,
     },
     infoTitle: {
         fontSize: 13,
@@ -101,21 +133,33 @@ const styles = StyleSheet.create({
         color: '#EF6C00',
         fontWeight: '600',
     },
-    addressBox: {
-        width: '100%',
-        backgroundColor: '#FFE0B2',
-        padding: 12,
-        borderRadius: 12,
-    },
-    addressTitle: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#E65100',
+    // ── Open ────────────────────────────────────────────────
+    openContainer: {
+        marginHorizontal: 16,
+        marginTop: 10,
         marginBottom: 4,
+        backgroundColor: '#F1F8E9',
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderWidth: 1,
+        borderColor: '#C5E1A5',
+        gap: 6,
     },
-    addressText: {
+    openRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    openIcon: {
         fontSize: 14,
-        color: '#EF6C00',
+        width: 20,
+        textAlign: 'center',
+    },
+    openText: {
+        fontSize: 13,
+        color: '#33691E',
         fontWeight: '500',
+        flex: 1,
     },
 });
