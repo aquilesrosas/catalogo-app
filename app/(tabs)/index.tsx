@@ -133,12 +133,7 @@ export default function HomeScreen() {
                 </View>
             </Pressable>
 
-            {/* BUSCADOR PROMINENTE */}
-            <View style={{ paddingHorizontal: 16, marginTop: 16, marginBottom: 8 }}>
-                <SearchBar value={searchQuery} onSearch={setSearch} />
-            </View>
-
-            {/* CHIPS DE NAVEGACION (Nuevos Sticky Tabs) */}
+            {/* CHIPS DE NAVEGACION */}
             <StickyCategoryTabs
                 categories={categories}
                 selectedId={selectedCategory}
@@ -150,7 +145,7 @@ export default function HomeScreen() {
                 <View style={styles.errorBanner}>
                     <Text style={styles.errorText}>⚠️ {error}</Text>
                     {(error.includes('404') || error.includes('Tienda no encontrada')) && (
-                        <Pressable 
+                        <Pressable
                             style={{ marginTop: 10, backgroundColor: '#E65100', padding: 8, borderRadius: 6 }}
                             onPress={() => {
                                 useConfigStore.getState().clearConfig();
@@ -275,8 +270,7 @@ export default function HomeScreen() {
         );
     }
 
-    // Only show full-page skeleton on initial cold load — not during search/filter refetches,
-    // because leaving the FlatList path would remount SearchBar and lose keyboard focus.
+    // Only show full-page skeleton on initial cold load (no search/filter active).
     if (loading && products.length === 0 && !searchQuery && !selectedCategory) {
         return (
             <View style={styles.container}>
@@ -288,6 +282,9 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container}>
+            {/* SearchBar lives OUTSIDE the FlatList so it never remounts when the list
+                re-renders (e.g. viewport resize from mobile keyboard opening). */}
+            <SearchBar value={searchQuery} onSearch={setSearch} />
             <FlatList
                 key={`grid-${numCols}`}
                 data={sortedProducts}
