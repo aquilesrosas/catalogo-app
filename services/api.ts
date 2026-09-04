@@ -335,5 +335,48 @@ export async function registerAPI(name: string, phone: string, email: string, pa
     return data;
 }
 
+// ─── Staff Auth ───────────────────────────────
+export async function loginStaff(username: string, password: string): Promise<OTPVerifyResponse & { is_staff: boolean }> {
+    const { data } = await api.post('auth/login-staff/', { username, password });
+    return data;
+}
+
+// ─── Staff — Menú Rápido ──────────────────────
+export interface MenuRapidoProducto {
+    id: number;
+    nombre: string;
+    categoria: string;
+    categoria_id: number | null;
+    imagen: string | null;
+    cantidad: number;
+    disponible: boolean;
+}
+
+export interface MenuRapidoResponse {
+    total: number;
+    disponibles: number;
+    productos: MenuRapidoProducto[];
+}
+
+export async function getMenuRapido(): Promise<MenuRapidoResponse> {
+    const { data } = await api.get('staff/menu-rapido/');
+    return data;
+}
+
+export async function updateMenuStock(id: number, cantidad: number): Promise<{ ok: boolean; cantidad: number }> {
+    const { data } = await api.post(`staff/menu-rapido/${id}/stock/`, { cantidad });
+    return data;
+}
+
+export async function resetMenu(): Promise<{ ok: boolean; updated: number }> {
+    const { data } = await api.post('staff/menu-rapido/reset/');
+    return data;
+}
+
+export async function activateAllMenu(): Promise<{ ok: boolean; activados: number }> {
+    const { data } = await api.post('staff/menu-rapido/activate/');
+    return data;
+}
+
 export default api;
 

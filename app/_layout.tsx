@@ -246,6 +246,15 @@ function RootLayoutContent() {
                         gestureEnabled: false,
                     }}
                 />
+                <Stack.Screen
+                    name="menu-rapido"
+                    options={{
+                        title: '⚡ Menú Rápido',
+                        headerBackTitle: 'Volver',
+                        headerStyle: { backgroundColor: '#1B5E20' },
+                        headerTintColor: '#fff',
+                    }}
+                />
             </Stack>
 
             {/* Global FAB Asesor Virtual */}

@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
-import { requestOTP, verifyOTP, logoutAPI, getProfile, loginPassword, setPassword, registerAPI } from '@/services/api';
+import { requestOTP, verifyOTP, logoutAPI, getProfile, loginPassword, setPassword, registerAPI, loginStaff } from '@/services/api';
 import { useConfigStore } from '@/stores/configStore';
 import { useCartStore } from '@/stores/cartStore';
 
@@ -24,7 +24,7 @@ type Step = 'phone' | 'password' | 'code' | 'set_password' | 'logged_in';
 
 export default function LoginScreen() {
     const router = useRouter();
-    const { isLoggedIn, clientName, clientPhone, clientPoints, login, logout, setPoints } = useAuthStore();
+    const { isLoggedIn, clientName, clientPhone, clientPoints, isStaff, login, logout, setPoints } = useAuthStore();
     const { clearConfig } = useConfigStore();
 
     const [step, setStep] = useState<Step>(isLoggedIn() ? 'logged_in' : 'phone');
@@ -37,6 +37,9 @@ export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
     const [devCode, setDevCode] = useState<string | null>(null);
     const [showRegister, setShowRegister] = useState(false);
+    const [showStaffLogin, setShowStaffLogin] = useState(false);
+    const [staffUsername, setStaffUsername] = useState('');
+    const [staffPassword, setStaffPasswordState] = useState('');
 
     const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -165,6 +168,27 @@ export default function LoginScreen() {
         }
     };
 
+    const handleStaffLogin = async () => {
+        if (!staffUsername || !staffPassword) {
+            Alert.alert('Error', 'Ingresá usuario y contraseña');
+            return;
+        }
+        setLoading(true);
+        try {
+            const result = await loginStaff(staffUsername.trim(), staffPassword);
+            login(result.token, result.client.name, result.client.phone, result.client.id, true);
+            setShowStaffLogin(false);
+            setStaffUsername('');
+            setStaffPasswordState('');
+            animateTransition('logged_in');
+            Alert.alert('✅ Acceso staff', `Bienvenido, ${result.client.name}`);
+        } catch (err: any) {
+            Alert.alert('Error', err?.response?.data?.error || 'Credenciales incorrectas');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <>
             <KeyboardAvoidingView
@@ -233,6 +257,9 @@ export default function LoginScreen() {
                                 </Pressable>
                                 <Pressable style={styles.skipBtn} onPress={() => router.back()}>
                                     <Text style={styles.skipBtnText}>Continuar sin cuenta</Text>
+                                </Pressable>
+                                <Pressable style={styles.skipBtn} onPress={() => setShowStaffLogin(true)}>
+                                    <Text style={[styles.skipBtnText, { color: '#1B5E20', fontWeight: '600' }]}>🔑 Acceso staff / empleado</Text>
                                 </Pressable>
                                 <Pressable
                                     style={styles.changeConfigBtn}
@@ -354,6 +381,11 @@ export default function LoginScreen() {
                                 <Pressable style={[styles.ordersBtn, { borderColor: '#FF6F00', backgroundColor: '#FFF8E1' }]} onPress={() => router.push('/store')}>
                                     <Text style={[styles.ordersBtnText, { color: '#FF6F00' }]}>🏪 Nuestro Local</Text>
                                 </Pressable>
+                                {isStaff && (
+                                    <Pressable style={[styles.ordersBtn, { borderColor: '#1B5E20', backgroundColor: '#E8F5E9' }]} onPress={() => router.push('/menu-rapido' as any)}>
+                                        <Text style={[styles.ordersBtnText, { color: '#1B5E20' }]}>⚡ Menú Rápido</Text>
+                                    </Pressable>
+                                )}
                                 <Pressable
                                     style={styles.changeConfigBtn}
                                     onPress={() => {
@@ -390,6 +422,54 @@ export default function LoginScreen() {
                     </Animated.View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* Modal: Login Staff */}
+            <Modal
+                visible={showStaffLogin}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowStaffLogin(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>🔑 Acceso Staff</Text>
+                            <Pressable onPress={() => setShowStaffLogin(false)} hitSlop={15}>
+                                <Text style={styles.modalCloseText}>✕</Text>
+                            </Pressable>
+                        </View>
+                        <View style={styles.formArea}>
+                            <Text style={styles.inputLabel}>Usuario del sistema</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={staffUsername}
+                                onChangeText={setStaffUsername}
+                                placeholder="Ej: maria_garcia"
+                                placeholderTextColor="#aaa"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                            <Text style={styles.inputLabel}>Contraseña</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={staffPassword}
+                                onChangeText={setStaffPasswordState}
+                                placeholder="******"
+                                placeholderTextColor="#aaa"
+                                secureTextEntry
+                            />
+                            <Pressable
+                                style={[styles.primaryBtn, loading && styles.btnDisabled]}
+                                onPress={handleStaffLogin}
+                                disabled={loading}
+                            >
+                                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Entrar como staff</Text>}
+                            </Pressable>
+                            <View style={{ height: 20 }} />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             <Modal
                 visible={showRegister}

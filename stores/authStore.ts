@@ -8,6 +8,7 @@ interface AuthState {
     clientPhone: string | null;
     clientId: number | null;
     clientPoints: number;
+    isStaff: boolean;
     loyaltyConfig: {
         is_active: boolean;
         currency_per_point: number;
@@ -18,7 +19,7 @@ interface AuthState {
     isLoggedIn: () => boolean;
 
     // Actions
-    login: (token: string, name: string, phone: string, id: number) => void;
+    login: (token: string, name: string, phone: string, id: number, isStaff?: boolean) => void;
     logout: () => void;
     setName: (name: string) => void;
     setPoints: (points: number) => void;
@@ -33,15 +34,16 @@ export const useAuthStore = create<AuthState>()(
             clientPhone: null,
             clientId: null,
             clientPoints: 0,
+            isStaff: false,
             loyaltyConfig: null,
 
             isLoggedIn: () => !!get().token,
 
-            login: (token, name, phone, id) =>
-                set({ token, clientName: name, clientPhone: phone, clientId: id }),
+            login: (token, name, phone, id, isStaff = false) =>
+                set({ token, clientName: name, clientPhone: phone, clientId: id, isStaff }),
 
             logout: () =>
-                set({ token: null, clientName: null, clientPhone: null, clientId: null, clientPoints: 0 }),
+                set({ token: null, clientName: null, clientPhone: null, clientId: null, clientPoints: 0, isStaff: false }),
 
             setName: (name) => set({ clientName: name }),
             setPoints: (points) => set({ clientPoints: points }),
