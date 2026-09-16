@@ -98,6 +98,7 @@ export default function KioskScreen() {
     const [builderQty, setBuilderQty] = useState(1);
     const [builderNotes, setBuilderNotes] = useState('');
     const [selectedExtras, setSelectedExtras] = useState<any[]>([]);
+    const [selectedPerExtras, setSelectedPerExtras] = useState<{nombre: string; precio_extra: number}[]>([]);
     const addItemToGlobalCart = useCartStore((s) => s.addItem);
     const globalCartItems = useCartStore((s) => s.items);
     const getGlobalCartCount = useCartStore((s) => s.getItemCount);
@@ -296,14 +297,17 @@ export default function KioskScreen() {
     // ─── Handlers ────────────────────────────
     const handleAddToCart = () => {
         if (!store.builderProduct) return;
-        
-        // Calculate total including extras if needed
-        const extrasTotal = selectedExtras.reduce((acc, curr) => acc + curr.price, 0);
+
+        // Per-product extras (from extras_config) + global dynamic extras
+        const perExtrasTotal = selectedPerExtras.reduce((acc, e) => acc + e.precio_extra, 0);
+        const extrasTotal = selectedExtras.reduce((acc, curr) => acc + curr.price, 0) + perExtrasTotal;
         const basePrice = parseFloat(store.builderProduct.price || store.builderProduct.precio_venta || '0');
-        
+
         // Prepare description from extras + notes
-        const extrasNames = selectedExtras.map(e => e.name).join(', ');
-        let description = extrasNames;
+        const perExtrasNames = selectedPerExtras.map(e => e.nombre).join(', ');
+        const globalExtrasNames = selectedExtras.map(e => e.name).join(', ');
+        const allExtrasNames = [perExtrasNames, globalExtrasNames].filter(Boolean).join(', ');
+        let description = allExtrasNames;
         if (builderNotes.trim()) {
             description = description ? `${description}. Nota: ${builderNotes.trim()}` : builderNotes.trim();
         }
@@ -312,12 +316,12 @@ export default function KioskScreen() {
 
         // Add to global cart instead of kiosk store
         addItemToGlobalCart(
-            { 
-                ...store.builderProduct, 
-                price: (basePrice + (extrasTotal / builderQty)).toString() // Spread extras cost across units or just add it
-            }, 
-            builderQty, 
-            extrasIds, 
+            {
+                ...store.builderProduct,
+                price: (basePrice + (extrasTotal / builderQty)).toString()
+            },
+            builderQty,
+            extrasIds,
             description
         );
 
@@ -325,7 +329,8 @@ export default function KioskScreen() {
         setBuilderQty(1);
         setBuilderNotes('');
         setSelectedExtras([]);
-        
+        setSelectedPerExtras([]);
+
         // El usuario pidió no redirigir al carrito automáticamente para seguir comprando
         // router.push('/cart');
     };
@@ -336,6 +341,15 @@ export default function KioskScreen() {
             setSelectedExtras(selectedExtras.filter(e => e.id !== extra.id));
         } else {
             setSelectedExtras([...selectedExtras, extra]);
+        }
+    };
+
+    const togglePerExtra = (extra: {nombre: string; precio_extra: number}) => {
+        store.touchInteraction();
+        if (selectedPerExtras.find(e => e.nombre === extra.nombre)) {
+            setSelectedPerExtras(selectedPerExtras.filter(e => e.nombre !== extra.nombre));
+        } else {
+            setSelectedPerExtras([...selectedPerExtras, extra]);
         }
     };
 
@@ -489,6 +503,8 @@ export default function KioskScreen() {
                     store.openBuilder(item);
                     setBuilderQty(1);
                     setBuilderNotes('');
+                    setSelectedExtras([]);
+                    setSelectedPerExtras([]);
                 }}
             >
                 <View style={[s.productImgPlaceholder, item.image_url && { backgroundColor: 'transparent' }]}>
@@ -693,8 +709,35 @@ export default function KioskScreen() {
                                     </View>
                                 </View>
 
-                                {/* EXTRAS */}
-                                {dynamicExtras.length > 0 && (
+                                {/* EXTRAS — per-product (from extras_config) */}
+                                {((store.builderProduct.extras_config ?? []).length > 0) && (
+                                    <>
+                                        <Text style={s.sectionLabel}>Aderezos y Extras</Text>
+                                        <View style={s.extrasGrid}>
+                                            {(store.builderProduct.extras_config ?? []).map((extra, idx) => {
+                                                const isSelected = !!selectedPerExtras.find(e => e.nombre === extra.nombre);
+                                                return (
+                                                    <Pressable
+                                                        key={idx}
+                                                        style={[s.extraBtn, isSelected && s.extraBtnActive]}
+                                                        onPress={() => togglePerExtra(extra)}
+                                                    >
+                                                        <View style={{ flex: 1 }}>
+                                                            <Text style={[s.extraName, isSelected && s.extraTextActive]}>{extra.nombre}</Text>
+                                                            {extra.precio_extra > 0 && (
+                                                                <Text style={[s.extraPrice, isSelected && s.extraTextActive]}>+ {formatPrice(extra.precio_extra)}</Text>
+                                                            )}
+                                                        </View>
+                                                        {isSelected && <Text style={s.checkIconSmall}>✓</Text>}
+                                                    </Pressable>
+                                                );
+                                            })}
+                                        </View>
+                                    </>
+                                )}
+
+                                {/* EXTRAS — global dynamic (only if no per-product extras) */}
+                                {((store.builderProduct.extras_config ?? []).length === 0) && dynamicExtras.length > 0 && (
                                     <>
                                         <Text style={s.sectionLabel}>Aderezos y Extras</Text>
                                         <View style={s.extrasGrid}>
@@ -726,7 +769,7 @@ export default function KioskScreen() {
                                 <Pressable style={s.addCartBtn} onPress={handleAddToCart}>
                                     <Text style={s.addCartBtnText}>
                                         Agregar al Carrito • {formatPrice(
-                                            ((parseFloat(store.builderProduct.price || store.builderProduct.precio_venta || '0')) * builderQty) + selectedExtras.reduce((acc, curr) => acc + curr.price, 0)
+                                            ((parseFloat(store.builderProduct.price || store.builderProduct.precio_venta || '0')) * builderQty) + selectedExtras.reduce((acc, curr) => acc + curr.price, 0) + selectedPerExtras.reduce((acc, e) => acc + e.precio_extra, 0)
                                         )}
                                     </Text>
                                 </Pressable>

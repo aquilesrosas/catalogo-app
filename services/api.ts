@@ -67,6 +67,11 @@ api.interceptors.response.use(
 );
 
 // ─── Types ────────────────────────────────────
+export interface ProductExtra {
+    nombre: string;
+    precio_extra: number;
+}
+
 export interface Product {
     id_producto: number;
     nombre_producto: string;
@@ -81,6 +86,7 @@ export interface Product {
     descripcion?: string;
     unit: string;
     sells_by_weight: boolean;
+    extras_config?: ProductExtra[];
 }
 
 export interface Category {
