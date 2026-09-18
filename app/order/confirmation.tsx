@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -6,10 +6,14 @@ import {
     ScrollView,
     Pressable,
     Platform,
+    Linking,
+    Modal,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useLastOrderStore } from '@/stores/lastOrderStore';
+import { useAuthStore } from '@/stores/authStore';
 import { formatPrice } from '@/utils/format';
+import { getStoreConfig } from '@/services/api';
 
 const DELIVERY_LABELS: Record<string, string> = {
     LOCAL: '🏪 Retiro en local',
@@ -44,12 +48,26 @@ export default function OrderConfirmationScreen() {
     const router = useRouter();
     const order = useLastOrderStore((s) => s.order);
     const clearOrder = useLastOrderStore((s) => s.clearOrder);
+    const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+    const clientName = useAuthStore((s) => s.clientName);
+
+    const [whatsappPhone, setWhatsappPhone] = useState<string>('');
+    const [storeName, setStoreName] = useState<string>('');
+    const [showAccountModal, setShowAccountModal] = useState(false);
 
     // Si no hay datos de pedido (navegación directa), ir a inicio
     useEffect(() => {
         if (!order) {
             router.replace('/');
         }
+    }, []);
+
+    useEffect(() => {
+        getStoreConfig().then((cfg) => {
+            const cc = cfg?.catalog_config as Record<string, unknown> | undefined;
+            setWhatsappPhone((cc?.whatsapp_phone as string) || '');
+            setStoreName(cfg?.name || '');
+        }).catch(() => {});
     }, []);
 
     if (!order) return null;
@@ -77,6 +95,37 @@ export default function OrderConfirmationScreen() {
     const handleGoOrders = () => {
         clearOrder();
         router.replace('/(tabs)/orders');
+    };
+
+    const handleWhatsApp = () => {
+        if (!isLoggedIn()) {
+            setShowAccountModal(true);
+            return;
+        }
+        openWhatsApp();
+    };
+
+    const openWhatsApp = () => {
+        if (!whatsappPhone) return;
+        const itemsText = order!.items
+            .map(i => `  • ${formatQty(i.quantity)} ${i.unit_snapshot} ${i.name_snapshot} - ${formatPrice(parseFloat(i.subtotal_final))}`)
+            .join('\n');
+        const greeting = clientName ? `Hola, soy ${clientName}` : 'Hola';
+        const msg = [
+            `${greeting}! Acabo de realizar el pedido *#${orderNum}*${storeName ? ` en *${storeName}*` : ''}.`,
+            '',
+            `*Ítems:*`,
+            itemsText,
+            '',
+            `*Total: ${formatPrice(parseFloat(order!.total))}*`,
+            order!.direccion_envio ? `*Dirección:* ${order!.direccion_envio}` : '',
+            '',
+            `¿Pueden confirmarme el pedido? ¡Gracias!`,
+        ].filter(l => l !== undefined).join('\n');
+
+        const phone = whatsappPhone.replace(/\D/g, '');
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+        Linking.openURL(url).catch(() => {});
     };
 
     return (
@@ -172,12 +221,19 @@ export default function OrderConfirmationScreen() {
                     ) : null}
                 </View>
 
-                {/* ── WhatsApp hint ── */}
-                <View style={styles.hintBox}>
-                    <Text style={styles.hintText}>
-                        📱 Si tenés WhatsApp, te enviamos la confirmación de tu pedido por ese medio.
-                    </Text>
-                </View>
+                {/* ── WhatsApp button ── */}
+                {whatsappPhone ? (
+                    <Pressable
+                        style={styles.btnWhatsApp}
+                        onPress={handleWhatsApp}
+                        android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+                    >
+                        <Text style={styles.btnWhatsAppText}>💬 Consultar por WhatsApp</Text>
+                        <Text style={styles.btnWhatsAppSub}>
+                            {isLoggedIn() ? 'Abre el chat con el detalle de tu pedido' : 'Iniciá sesión para vincular tu pedido'}
+                        </Text>
+                    </Pressable>
+                ) : null}
 
                 {/* ── Botones ── */}
                 <View style={styles.buttons}>
@@ -198,6 +254,51 @@ export default function OrderConfirmationScreen() {
                     </Pressable>
                 </View>
             </ScrollView>
+
+            {/* ── Modal: crear cuenta ── */}
+            <Modal
+                visible={showAccountModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowAccountModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalCard}>
+                        <Text style={styles.modalEmoji}>👤</Text>
+                        <Text style={styles.modalTitle}>¿Tenés cuenta?</Text>
+                        <Text style={styles.modalText}>
+                            Para vincular el pedido con tu WhatsApp y hacer seguimiento, iniciá sesión o creá una cuenta gratis.
+                        </Text>
+                        <Pressable
+                            style={styles.modalBtnPrimary}
+                            onPress={() => {
+                                setShowAccountModal(false);
+                                router.push('/auth/login');
+                            }}
+                        >
+                            <Text style={styles.modalBtnPrimaryText}>Iniciar sesión</Text>
+                        </Pressable>
+                        <Pressable
+                            style={styles.modalBtnSecondary}
+                            onPress={() => {
+                                setShowAccountModal(false);
+                                router.push('/auth/register');
+                            }}
+                        >
+                            <Text style={styles.modalBtnSecondaryText}>Crear cuenta gratis</Text>
+                        </Pressable>
+                        <Pressable
+                            style={styles.modalBtnSkip}
+                            onPress={() => {
+                                setShowAccountModal(false);
+                                openWhatsApp();
+                            }}
+                        >
+                            <Text style={styles.modalBtnSkipText}>Continuar sin cuenta</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
         </>
     );
 }
@@ -408,5 +509,96 @@ const styles = StyleSheet.create({
         color: GREEN,
         fontSize: 16,
         fontWeight: '600',
+    },
+
+    // WhatsApp button
+    btnWhatsApp: {
+        backgroundColor: '#25D366',
+        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        marginBottom: 12,
+        ...Platform.select({
+            ios: { shadowColor: '#25D366', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6 },
+            android: { elevation: 4 },
+        }),
+    },
+    btnWhatsAppText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    btnWhatsAppSub: {
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 11,
+        marginTop: 3,
+    },
+
+    // Modal
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalCard: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 28,
+        paddingBottom: 40,
+        alignItems: 'center',
+    },
+    modalEmoji: {
+        fontSize: 48,
+        marginBottom: 12,
+    },
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#1a1a1a',
+        marginBottom: 8,
+    },
+    modalText: {
+        fontSize: 14,
+        color: '#555',
+        textAlign: 'center',
+        lineHeight: 20,
+        marginBottom: 24,
+    },
+    modalBtnPrimary: {
+        backgroundColor: GREEN,
+        borderRadius: 12,
+        paddingVertical: 14,
+        width: '100%',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    modalBtnPrimaryText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    modalBtnSecondary: {
+        backgroundColor: LIGHT_GREEN,
+        borderRadius: 12,
+        paddingVertical: 14,
+        width: '100%',
+        alignItems: 'center',
+        marginBottom: 10,
+        borderWidth: 1.5,
+        borderColor: GREEN,
+    },
+    modalBtnSecondaryText: {
+        color: GREEN,
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    modalBtnSkip: {
+        paddingVertical: 12,
+    },
+    modalBtnSkipText: {
+        color: '#999',
+        fontSize: 13,
     },
 });
