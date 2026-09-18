@@ -149,8 +149,9 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
 
           map = L.map('map', { zoomControl: false }).setView([startLat, startLng], 16);
           
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 20
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 20,
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           }).addTo(map);
 
           map.on('moveend', function() {
