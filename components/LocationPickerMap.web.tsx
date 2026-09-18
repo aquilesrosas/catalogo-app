@@ -1,11 +1,17 @@
 import React, { useRef, useEffect } from 'react';
-import { StyleSheet, View, TextInput, Pressable, Text, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, TextInput, Pressable, Text, ActivityIndicator, ScrollView } from 'react-native';
 
 interface LocationPickerProps {
   initialLocation?: { lat: number; lng: number };
   onLocationSelect: (lat: number, lng: number) => void;
   onAddressResolved?: (address: string) => void;
   showCrosshair?: boolean;
+}
+
+interface Suggestion {
+  display_name: string;
+  lat: string;
+  lon: string;
 }
 
 const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
@@ -16,9 +22,11 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
 }) => {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const lastSearchTime = useRef(0);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchText, setSearchText] = React.useState('');
   const [searching, setSearching] = React.useState(false);
   const [resolvedAddress, setResolvedAddress] = React.useState('');
+  const [suggestions, setSuggestions] = React.useState<Suggestion[]>([]);
 
   // Listen for messages from iframe
   useEffect(() => {
@@ -40,75 +48,60 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
     return () => window.removeEventListener('message', handleMessage);
   }, [onLocationSelect, onAddressResolved]);
 
-  const handleSearch = async () => {
-    if (!searchText.trim()) return;
+  const fetchSuggestions = async (query: string) => {
+    if (query.trim().length < 3) { setSuggestions([]); return; }
     setSearching(true);
     try {
-      // Bias search toward user's current area
       const viewbox = initialLocation
         ? `&viewbox=${initialLocation.lng - 0.5},${initialLocation.lat + 0.5},${initialLocation.lng + 0.5},${initialLocation.lat - 0.5}&bounded=1`
         : '';
-      // Use structured query: street param keeps the number attached
-      const query = searchText.trim();
-      const url = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(query)}&city=Salta&state=Salta&country=Argentina&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
+      // Try structured street search first
+      const url = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(query)}&city=Salta&state=Salta&country=Argentina&countrycodes=ar&limit=6&addressdetails=1${viewbox}`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'es' } });
-      let results = await res.json();
-      
-      // If structured search didn't find results, fall back to free text
+      let results: Suggestion[] = await res.json();
+
       if (!results || results.length === 0) {
-        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&countrycodes=ar&limit=6&addressdetails=1${viewbox}`;
         const fallbackRes = await fetch(fallbackUrl, { headers: { 'Accept-Language': 'es' } });
         results = await fallbackRes.json();
       }
 
-      // If still no results, strip numbers and search for just the street
-      if (!results || results.length === 0) {
-        const queryWithoutNumbers = query.replace(/[0-9]/g, '').trim();
-        if (queryWithoutNumbers) {
-            const streetFallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(queryWithoutNumbers)}&city=Salta&state=Salta&country=Argentina&countrycodes=ar&limit=5&addressdetails=1${viewbox}`;
-            const streetFallbackRes = await fetch(streetFallbackUrl, { headers: { 'Accept-Language': 'es' } });
-            results = await streetFallbackRes.json();
-        }
-      }
-      
-      if (results && results.length > 0) {
-        const { lat, lon, display_name, address } = results[0];
-        const newLat = parseFloat(lat);
-        const newLng = parseFloat(lon);
-        
-        // Extract number from user's search text to preserve it,
-        // since OpenStreetMap often drops numbers it doesn't have exactly.
-        const matchNumber = searchText.match(/\b\d+\b/);
-        const userNumber = matchNumber ? matchNumber[0] : null;
-        
-        let finalAddress = display_name;
-        
-        // OpenStreetMap often removes the exact house number if it doesn't have it mapped.
-        // If the user typed a number and it's missing from the OSM formatted address, 
-        // we force it back into the first component (the street name).
-        if (userNumber && !finalAddress.includes(userNumber)) {
-            const parts = finalAddress.split(', ');
-            parts[0] = `${parts[0]} ${userNumber}`;
-            finalAddress = parts.join(', ');
-        }
-        
-        // Move the iframe map
-        iframeRef.current?.contentWindow?.postMessage(
-          JSON.stringify({ type: 'moveTo', lat: newLat, lng: newLng }),
-          '*'
-        );
-        onLocationSelect(newLat, newLng);
-        setResolvedAddress(finalAddress);
-        onAddressResolved?.(finalAddress);
-        lastSearchTime.current = Date.now();
-      } else {
-        window.alert('No se encontró la dirección. Probá con más detalle.');
-      }
+      setSuggestions(results || []);
     } catch (e) {
-      console.error('Geocoding error:', e);
+      setSuggestions([]);
     } finally {
       setSearching(false);
     }
+  };
+
+  const handleTextChange = (text: string) => {
+    setSearchText(text);
+    setSuggestions([]);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => fetchSuggestions(text), 500);
+  };
+
+  const selectSuggestion = (suggestion: Suggestion) => {
+    const newLat = parseFloat(suggestion.lat);
+    const newLng = parseFloat(suggestion.lon);
+    // Short display: first two comma-separated parts
+    const shortName = suggestion.display_name.split(',').slice(0, 2).join(', ');
+    setSuggestions([]);
+    setSearchText(shortName);
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ type: 'moveTo', lat: newLat, lng: newLng }),
+      '*'
+    );
+    onLocationSelect(newLat, newLng);
+    setResolvedAddress(suggestion.display_name);
+    onAddressResolved?.(suggestion.display_name);
+    lastSearchTime.current = Date.now();
+  };
+
+  const handleSearch = async () => {
+    if (!searchText.trim()) return;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    await fetchSuggestions(searchText);
   };
 
   const htmlContent = `
@@ -216,11 +209,12 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
         <TextInput
           style={styles.searchInput}
           value={searchText}
-          onChangeText={setSearchText}
+          onChangeText={handleTextChange}
           placeholder="Buscá tu dirección..."
           placeholderTextColor="#999"
           onSubmitEditing={handleSearch}
           returnKeyType="search"
+          autoCorrect={false}
         />
         <Pressable style={styles.searchBtn} onPress={handleSearch} disabled={searching}>
           {searching ? (
@@ -231,8 +225,29 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
         </Pressable>
       </View>
 
+      {/* Suggestions dropdown */}
+      {suggestions.length > 0 && (
+        <View style={styles.suggestionsContainer}>
+          {suggestions.map((s, i) => {
+            const parts = s.display_name.split(',');
+            const mainText = parts.slice(0, 2).join(',').trim();
+            const subText = parts.slice(2, 4).join(',').trim();
+            return (
+              <Pressable
+                key={i}
+                style={[styles.suggestionItem, i < suggestions.length - 1 && styles.suggestionBorder]}
+                onPress={() => selectSuggestion(s)}
+              >
+                <Text style={styles.suggestionMain} numberOfLines={1}>📍 {mainText}</Text>
+                {subText ? <Text style={styles.suggestionSub} numberOfLines={1}>{subText}</Text> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
       {/* Resolved address display */}
-      {resolvedAddress ? (
+      {resolvedAddress && suggestions.length === 0 ? (
         <View style={styles.addressBar}>
           <Text style={styles.addressText} numberOfLines={2}>📍 {resolvedAddress}</Text>
         </View>
@@ -304,6 +319,37 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
     marginTop: 4,
+  },
+  suggestionsContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
+    marginBottom: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  suggestionItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  suggestionBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  suggestionMain: {
+    fontSize: 13,
+    color: '#1a1a1a',
+    fontWeight: '500',
+  },
+  suggestionSub: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
   },
 });
 
