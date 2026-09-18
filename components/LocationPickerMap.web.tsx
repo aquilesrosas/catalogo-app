@@ -55,15 +55,45 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
       const viewbox = initialLocation
         ? `&viewbox=${initialLocation.lng - 0.5},${initialLocation.lat + 0.5},${initialLocation.lng + 0.5},${initialLocation.lat - 0.5}&bounded=1`
         : '';
-      // Try structured street search first
-      const url = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(query)}&city=Salta&state=Salta&country=Argentina&countrycodes=ar&limit=6&addressdetails=1${viewbox}`;
-      const res = await fetch(url, { headers: { 'Accept-Language': 'es' } });
-      let results: Suggestion[] = await res.json();
+      const base = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=ar&limit=6&addressdetails=1${viewbox}`;
+      const headers = { 'Accept-Language': 'es' };
 
-      if (!results || results.length === 0) {
-        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Salta, Argentina')}&countrycodes=ar&limit=6&addressdetails=1${viewbox}`;
-        const fallbackRes = await fetch(fallbackUrl, { headers: { 'Accept-Language': 'es' } });
-        results = await fallbackRes.json();
+      // Detect if query has a number (house number)
+      const numMatch = query.trim().match(/^(.*?)\s+(\d+)\s*$/);
+      let results: Suggestion[] = [];
+
+      if (numMatch) {
+        // Query like "mar antartico 729" → use housenumber + street + city
+        const streetPart = numMatch[1].trim();
+        const numberPart = numMatch[2];
+        const structuredUrl = `${base}&housenumber=${encodeURIComponent(numberPart)}&street=${encodeURIComponent(streetPart)}&city=Salta&state=Salta`;
+        const r1 = await fetch(structuredUrl, { headers });
+        results = await r1.json();
+
+        // Also try free text with number first (e.g. "729 mar antartico, Salta")
+        if (!results || results.length === 0) {
+          const freeUrl = `${base}&q=${encodeURIComponent(query + ', Salta, Argentina')}`;
+          const r2 = await fetch(freeUrl, { headers });
+          results = await r2.json();
+        }
+
+        // Fallback: street only to show options at least
+        if (!results || results.length === 0) {
+          const streetOnlyUrl = `${base}&street=${encodeURIComponent(streetPart)}&city=Salta&state=Salta`;
+          const r3 = await fetch(streetOnlyUrl, { headers });
+          results = await r3.json();
+        }
+      } else {
+        // No number — structured street search
+        const streetUrl = `${base}&street=${encodeURIComponent(query)}&city=Salta&state=Salta`;
+        const r1 = await fetch(streetUrl, { headers });
+        results = await r1.json();
+
+        if (!results || results.length === 0) {
+          const freeUrl = `${base}&q=${encodeURIComponent(query + ', Salta, Argentina')}`;
+          const r2 = await fetch(freeUrl, { headers });
+          results = await r2.json();
+        }
       }
 
       setSuggestions(results || []);
@@ -84,8 +114,13 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
   const selectSuggestion = (suggestion: Suggestion) => {
     const newLat = parseFloat(suggestion.lat);
     const newLng = parseFloat(suggestion.lon);
-    // Short display: first two comma-separated parts
-    const shortName = suggestion.display_name.split(',').slice(0, 2).join(', ');
+    // Build a short display preserving house number from user's input if OSM dropped it
+    const parts = suggestion.display_name.split(',');
+    let shortName = parts.slice(0, 2).join(', ').trim();
+    const numMatch = searchText.trim().match(/\b(\d+)\b/);
+    if (numMatch && !shortName.includes(numMatch[1])) {
+      shortName = `${parts[0].trim()} ${numMatch[1]}, ${parts[1]?.trim() || ''}`;
+    }
     setSuggestions([]);
     setSearchText(shortName);
     iframeRef.current?.contentWindow?.postMessage(
