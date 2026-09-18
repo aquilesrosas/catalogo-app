@@ -121,6 +121,13 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
     if (numMatch && !shortName.includes(numMatch[1])) {
       shortName = `${parts[0].trim()} ${numMatch[1]}, ${parts[1]?.trim() || ''}`;
     }
+    // Build full address preserving house number if OSM dropped it
+    let finalAddress = suggestion.display_name;
+    if (numMatch && !finalAddress.includes(numMatch[1])) {
+      const addrParts = finalAddress.split(',');
+      addrParts[0] = `${addrParts[0].trim()} ${numMatch[1]}`;
+      finalAddress = addrParts.join(',');
+    }
     setSuggestions([]);
     setSearchText(shortName);
     // Use zoom 18 so user can see individual blocks and fine-tune the pin
@@ -129,8 +136,8 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
       '*'
     );
     onLocationSelect(newLat, newLng);
-    setResolvedAddress(suggestion.display_name);
-    onAddressResolved?.(suggestion.display_name);
+    setResolvedAddress(finalAddress);
+    onAddressResolved?.(finalAddress);
     lastSearchTime.current = Date.now();
   };
 
