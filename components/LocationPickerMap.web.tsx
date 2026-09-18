@@ -123,8 +123,9 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
     }
     setSuggestions([]);
     setSearchText(shortName);
+    // Use zoom 18 so user can see individual blocks and fine-tune the pin
     iframeRef.current?.contentWindow?.postMessage(
-      JSON.stringify({ type: 'moveTo', lat: newLat, lng: newLng }),
+      JSON.stringify({ type: 'moveTo', lat: newLat, lng: newLng, zoom: 18 }),
       '*'
     );
     onLocationSelect(newLat, newLng);
@@ -225,7 +226,7 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
               var cmd = JSON.parse(e.data);
               if (cmd.type === 'moveTo' && cmd.lat && cmd.lng) {
                 isProgrammaticMove = true;
-                map.setView([cmd.lat, cmd.lng], 17, { animate: false });
+                map.setView([cmd.lat, cmd.lng], cmd.zoom || 17, { animate: true });
               }
             } catch(x) {}
           });
@@ -297,7 +298,11 @@ const LocationPickerMapWeb: React.FC<LocationPickerProps> = ({
         />
       </View>
 
-      <Text style={styles.helpText}>Ajustá moviendo el mapa para mayor precisión</Text>
+      <Text style={styles.helpText}>
+        {searchText.trim().match(/\b\d+\b/)
+          ? '📍 Mapa centrado en la calle — deslizá hasta el número exacto de tu casa'
+          : 'Ajustá moviendo el mapa para mayor precisión'}
+      </Text>
     </View>
   );
 };
