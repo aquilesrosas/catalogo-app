@@ -56,6 +56,7 @@ export default function HomeScreen() {
     const kioskTitle = useConfigStore((s) => s.kioskTitle);
     const slug = useConfigStore((s) => s.tenantSlug);
     const bookingMode = useConfigStore((s) => s.bookingMode);
+    const showPedirComida = useConfigStore((s) => s.showPedirComida);
     const { items: cartItems, getItemCount, getTotal } = useCartStore();
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const [pointsModalVisible, setPointsModalVisible] = useState(false);
@@ -134,19 +135,21 @@ export default function HomeScreen() {
             <ClosedBanner />
 
             {/* MODULO PEDIR COMIDA (Kiosk) */}
-            <Pressable
-                style={styles.kioskBanner}
-                onPress={() => router.push('/kiosk')}
-            >
-                <View style={styles.kioskContent}>
-                    <Text style={styles.kioskEmoji}>🍔</Text>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.kioskTitle}>🍔 Pedir Comida</Text>
-                        <Text style={styles.kioskSubtitle}>Tocá para hacer tu pedido local</Text>
+            {showPedirComida && (
+                <Pressable
+                    style={styles.kioskBanner}
+                    onPress={() => router.push('/kiosk')}
+                >
+                    <View style={styles.kioskContent}>
+                        <Text style={styles.kioskEmoji}>🍔</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.kioskTitle}>🍔 Pedir Comida</Text>
+                            <Text style={styles.kioskSubtitle}>Tocá para hacer tu pedido local</Text>
+                        </View>
+                        <Text style={styles.kioskArrow}>›</Text>
                     </View>
-                    <Text style={styles.kioskArrow}>›</Text>
-                </View>
-            </Pressable>
+                </Pressable>
+            )}
 
             {/* CHIPS DE NAVEGACION */}
             <StickyCategoryTabs

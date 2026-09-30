@@ -10,6 +10,7 @@ interface ConfigState {
     kioskTitle: string;
     showClasesTab: boolean;
     showMesaDelivery: boolean;
+    showPedirComida: boolean;
     bookingMode: string;
     isConfigured: () => boolean;
     setTenantSlug: (slug: string) => void;
@@ -19,6 +20,7 @@ interface ConfigState {
     setKioskTitle: (title: string) => void;
     setShowClasesTab: (val: boolean) => void;
     setShowMesaDelivery: (val: boolean) => void;
+    setShowPedirComida: (val: boolean) => void;
     setBookingMode: (val: string) => void;
     setPrimaryColor: (color: string) => void;
 }
@@ -33,6 +35,7 @@ export const useConfigStore = create<ConfigState>()(
             kioskTitle: '🍔 Pedir Comida',
             showClasesTab: true,
             showMesaDelivery: true,
+            showPedirComida: true,
             bookingMode: '',
             isConfigured: () => !!get().tenantSlug,
             setTenantSlug: (slug: string) => set({ tenantSlug: slug }),
@@ -42,6 +45,7 @@ export const useConfigStore = create<ConfigState>()(
             setKioskTitle: (title: string) => set({ kioskTitle: title }),
             setShowClasesTab: (val: boolean) => set({ showClasesTab: val }),
             setShowMesaDelivery: (val: boolean) => set({ showMesaDelivery: val }),
+            setShowPedirComida: (val: boolean) => set({ showPedirComida: val }),
             setBookingMode: (val: string) => set({ bookingMode: val }),
             setPrimaryColor: (color: string) => set({ primaryColor: color }),
         }),

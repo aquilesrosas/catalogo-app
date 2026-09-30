@@ -101,6 +101,7 @@ export default function TabsLayout() {
     const initial = isLoggedIn() && clientName ? clientName[0].toUpperCase() : null;
     const setShowClasesTab = useConfigStore((s) => s.setShowClasesTab);
     const setShowMesaDelivery = useConfigStore((s) => s.setShowMesaDelivery);
+    const setShowPedirComida = useConfigStore((s) => s.setShowPedirComida);
     const setBookingMode = useConfigStore((s) => s.setBookingMode);
     const setPrimaryColor = useConfigStore((s) => s.setPrimaryColor);
 
@@ -110,6 +111,7 @@ export default function TabsLayout() {
             const cc = (config.catalog_config || {}) as Record<string, unknown>;
             setShowClasesTab(cc.show_clases_tab !== false);
             setShowMesaDelivery(cc.show_mesa_delivery !== false);
+            setShowPedirComida(cc.show_pedir_comida !== false);
             setBookingMode((cc.booking_mode as string) || '');
             if (config.primary_color) setPrimaryColor(config.primary_color);
         }).catch(() => {});
