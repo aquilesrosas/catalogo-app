@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
-import { useRouter, useSegments, Redirect } from 'expo-router';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Animated, Platform } from 'react-native';
+import { useRouter, useSegments, Redirect, usePathname } from 'expo-router';
 import { useConfigStore } from '@/stores/configStore';
 
 // ─── Error Boundary ──────────────────────────
@@ -120,6 +120,26 @@ export default function RootLayout() {
     );
 }
 
+// ─── Fade wrapper (web only) ─────────────────
+function FadeWrapper({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
+    const opacity = useRef(new Animated.Value(1)).current;
+    const isFirst = useRef(true);
+
+    useEffect(() => {
+        if (isFirst.current) { isFirst.current = false; return; }
+        opacity.setValue(0);
+        Animated.timing(opacity, {
+            toValue: 1,
+            duration: 180,
+            useNativeDriver: Platform.OS !== 'web',
+        }).start();
+    }, [pathname]);
+
+    if (Platform.OS !== 'web') return <>{children}</>;
+    return <Animated.View style={{ flex: 1, opacity }}>{children}</Animated.View>;
+}
+
 function RootLayoutContent() {
     const isConfigured = useConfigStore((s) => s.isConfigured());
     const setTenantSlug = useConfigStore((s) => s.setTenantSlug);
@@ -166,7 +186,7 @@ function RootLayoutContent() {
     }
 
     return (
-        <>
+        <FadeWrapper>
             <StatusBar style="light" />
             <Stack
                 screenOptions={{
@@ -266,7 +286,7 @@ function RootLayoutContent() {
                     <Text style={fabStyles.fabIcon}>🤖</Text>
                 </Pressable>
             )}
-        </>
+        </FadeWrapper>
     );
 }
 
