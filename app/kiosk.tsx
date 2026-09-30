@@ -45,8 +45,8 @@ const CONFIG_PIN = '2026420'; // PIN para configurar categorías
 export default function KioskScreen() {
     const router = useRouter();
     const { width } = useWindowDimensions();
-    const isTablet = width > 700;
-    const numColumns = isTablet ? (width > 900 ? 4 : 3) : 2;
+    const isTablet = width > 600;
+    const numColumns = isTablet ? 3 : 2;
 
     // Store
     const store = useKioskStore();
@@ -88,11 +88,17 @@ export default function KioskScreen() {
     const [paymentMethods, setPaymentMethods] = useState<Array<{ id: string, name: string }>>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+    const [kioskSearch, setKioskSearch] = useState('');
 
     // Filtered categories for kiosk display
     const filteredCategories = kioskCategoryIds.length > 0
         ? allCategories.filter(c => kioskCategoryIds.includes(c.id_categoria))
         : allCategories;
+
+    // Search-filtered products
+    const displayProducts = kioskSearch.trim().length >= 2
+        ? products.filter(p => p.nombre_producto.toLowerCase().includes(kioskSearch.toLowerCase()))
+        : products;
 
     // Builder local state
     const [builderQty, setBuilderQty] = useState(1);
@@ -615,10 +621,31 @@ export default function KioskScreen() {
                 </ScrollView>
             </View>
 
+            {/* ─── Search Bar ─────────────── */}
+            <View style={s.searchContainer}>
+                <View style={s.searchInner}>
+                    <Text style={s.searchIcon}>🔍</Text>
+                    <TextInput
+                        style={s.searchInput}
+                        placeholder="Buscar producto..."
+                        placeholderTextColor="#555"
+                        value={kioskSearch}
+                        onChangeText={(t) => { store.touchInteraction(); setKioskSearch(t); }}
+                        returnKeyType="search"
+                        clearButtonMode="while-editing"
+                    />
+                    {kioskSearch.length > 0 && (
+                        <Pressable onPress={() => { store.touchInteraction(); setKioskSearch(''); }}>
+                            <Text style={{ color: '#555', fontSize: 18, paddingHorizontal: 8 }}>✕</Text>
+                        </Pressable>
+                    )}
+                </View>
+            </View>
+
             {/* ─── Products Grid ──────────── */}
             <FlatList
                 key={`grid-${numColumns}`}
-                data={products}
+                data={displayProducts}
                 numColumns={numColumns}
                 keyExtractor={(item) => item.id_producto.toString()}
                 contentContainerStyle={s.gridContent}
@@ -1022,24 +1049,30 @@ const s = StyleSheet.create({
     categoryTextActive: { color: '#fff' },
 
     // Grid
-    gridContent: { paddingHorizontal: 12, paddingBottom: 140 },
-    gridRow: { justifyContent: 'flex-start', gap: 10, marginBottom: 10 },
+    gridContent: { paddingHorizontal: 16, paddingBottom: 140 },
+    gridRow: { justifyContent: 'flex-start', gap: 14, marginBottom: 14 },
+
+    // Search
+    searchContainer: { paddingHorizontal: 16, paddingBottom: 14 },
+    searchInner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E1E', borderRadius: 16, borderWidth: 1, borderColor: '#333', paddingHorizontal: 14, height: 48 },
+    searchIcon: { fontSize: 16, marginRight: 8 },
+    searchInput: { flex: 1, color: '#fff', fontSize: 16 },
 
     // Product Card
     productCard: { backgroundColor: '#1E1E1E', borderRadius: 20, overflow: 'hidden', position: 'relative' },
-    productImgPlaceholder: { height: 180, backgroundColor: '#282828', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+    productImgPlaceholder: { height: 210, backgroundColor: '#282828', alignItems: 'center', justifyContent: 'center', position: 'relative' },
     productImageReal: { width: '100%', height: '100%', position: 'absolute' },
-    productEmoji: { fontSize: 48, opacity: 0.4 },
-    productUnitBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+    productEmoji: { fontSize: 56, opacity: 0.35 },
+    productUnitBadge: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
     productUnitText: { fontSize: 10, fontWeight: '700', color: '#000' },
-    productStockBadge: { position: 'absolute', bottom: 8, left: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+    productStockBadge: { position: 'absolute', bottom: 10, left: 10, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
     productStockText: { fontSize: 10, fontWeight: '700', color: '#fff' },
-    productOutOfStock: { opacity: 0.5 },
-    productInfo: { padding: 12 },
-    productName: { color: '#fff', fontWeight: '700', fontSize: 14, lineHeight: 18, marginBottom: 6 },
-    productPrice: { color: '#FF9100', fontWeight: '800', fontSize: 18 },
-    addBtnSmall: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#FF9100', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    addBtnSmallText: { color: '#fff', fontSize: 20, fontWeight: '700', lineHeight: 22 },
+    productOutOfStock: { opacity: 0.45 },
+    productInfo: { padding: 14, paddingBottom: 44 },
+    productName: { color: '#fff', fontWeight: '700', fontSize: 15, lineHeight: 20, marginBottom: 6 },
+    productPrice: { color: '#FF9100', fontWeight: '800', fontSize: 20 },
+    addBtnSmall: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#FF9100', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    addBtnSmallText: { color: '#fff', fontSize: 22, fontWeight: '700', lineHeight: 24 },
 
     // Empty
     emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },

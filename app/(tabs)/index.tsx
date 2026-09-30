@@ -63,7 +63,7 @@ export default function HomeScreen() {
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
 
-    const numCols = width >= 1024 ? 4 : width >= 768 ? 3 : 1;
+    const numCols = width >= 1024 ? 4 : width >= 768 ? 3 : 2;
 
     // Sort products: in-stock first, out-of-stock last
     const sortedProducts = useMemo(() => {
@@ -154,6 +154,9 @@ export default function HomeScreen() {
                 selectedId={selectedCategory}
                 onSelect={setCategory}
             />
+
+            {/* SEARCH BAR — below categories */}
+            <SearchBar value={searchQuery} onSearch={setSearch} />
 
             {/* ERROR BANNER */}
             {error ? (
@@ -297,9 +300,6 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container}>
-            {/* SearchBar lives OUTSIDE the FlatList so it never remounts when the list
-                re-renders (e.g. viewport resize from mobile keyboard opening). */}
-            <SearchBar value={searchQuery} onSearch={setSearch} />
             <FlatList
                 key={`grid-${numCols}`}
                 data={sortedProducts}
@@ -449,7 +449,6 @@ const styles = StyleSheet.create({
     },
     gridItem: {
         flex: 1,
-        maxWidth: '33.33%', // fallback, controlled by gap
     },
     listItem: {
         paddingHorizontal: 16,

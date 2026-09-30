@@ -20,7 +20,7 @@ function ProductCard({ product }: ProductCardProps) {
     const primaryColor = useConfigStore((s: any) => s.primary_color) || '#D32F2F';
     const { width } = useWindowDimensions();
     
-    const isDesktop = width >= 768;
+    const isDesktop = width >= 300; // always use vertical grid card layout
 
     const scaleAnim = useRef(new Animated.Value(1)).current;
     const elevationAnim = useRef(new Animated.Value(isDesktop ? 4 : 2)).current;
