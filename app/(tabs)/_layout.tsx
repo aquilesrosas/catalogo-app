@@ -14,6 +14,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
     const insets = useSafeAreaInsets();
     const showClasesTab = useConfigStore((s) => s.showClasesTab);
     const bookingMode = useConfigStore((s) => s.bookingMode);
+    const primaryColor = useConfigStore((s) => s.primaryColor);
 
     return (
         <View style={[tabBarStyles.container, { paddingBottom: insets.bottom }]}>
@@ -37,7 +38,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                                 style={tabBarStyles.cartButton}
                                 onPress={() => router.push('/cart')}
                             >
-                                <View style={tabBarStyles.cartCircle}>
+                                <View style={[tabBarStyles.cartCircle, { backgroundColor: primaryColor, shadowColor: primaryColor }]}>
                                     <Text style={tabBarStyles.cartIcon}>🛒</Text>
                                     {count > 0 && (
                                         <View style={tabBarStyles.cartBadge}>
@@ -69,14 +70,14 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                                 }
                             }}
                         >
-                            {icon && icon({ focused: isFocused, color: isFocused ? '#1B5E20' : '#999', size: 24 })}
+                            {icon && icon({ focused: isFocused, color: isFocused ? primaryColor : '#999', size: 24 })}
                             <Text style={[
                                 tabBarStyles.tabLabel,
-                                isFocused && tabBarStyles.tabLabelActive,
+                                isFocused && { color: primaryColor, fontWeight: '800' },
                             ]}>
                                 {label}
                             </Text>
-                            {isFocused && <View style={tabBarStyles.activeIndicator} />}
+                            {isFocused && <View style={[tabBarStyles.activeIndicator, { backgroundColor: primaryColor }]} />}
                         </Pressable>
                     );
                 })}
@@ -101,14 +102,16 @@ export default function TabsLayout() {
     const setShowClasesTab = useConfigStore((s) => s.setShowClasesTab);
     const setShowMesaDelivery = useConfigStore((s) => s.setShowMesaDelivery);
     const setBookingMode = useConfigStore((s) => s.setBookingMode);
+    const setPrimaryColor = useConfigStore((s) => s.setPrimaryColor);
 
-    // Sync feature flags from server on mount
+    // Sync feature flags + brand color from server on mount
     useEffect(() => {
         getStoreConfig().then((config) => {
             const cc = (config.catalog_config || {}) as Record<string, unknown>;
             setShowClasesTab(cc.show_clases_tab !== false);
             setShowMesaDelivery(cc.show_mesa_delivery !== false);
             setBookingMode((cc.booking_mode as string) || '');
+            if (config.primary_color) setPrimaryColor(config.primary_color);
         }).catch(() => {});
     }, []);
 

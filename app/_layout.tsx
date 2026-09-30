@@ -143,6 +143,7 @@ function FadeWrapper({ children }: { children: React.ReactNode }) {
 function RootLayoutContent() {
     const isConfigured = useConfigStore((s) => s.isConfigured());
     const setTenantSlug = useConfigStore((s) => s.setTenantSlug);
+    const primaryColor = useConfigStore((s) => s.primaryColor);
     const segments = useSegments();
     const router = useRouter();
 
@@ -190,7 +191,7 @@ function RootLayoutContent() {
             <StatusBar style="light" />
             <Stack
                 screenOptions={{
-                    headerStyle: { backgroundColor: '#1B5E20' },
+                    headerStyle: { backgroundColor: primaryColor },
                     headerTintColor: '#fff',
                     headerTitleStyle: { fontWeight: '700' },
                     contentStyle: { backgroundColor: '#FAFAFA' },
@@ -281,7 +282,7 @@ function RootLayoutContent() {
             {isConfigured && segments[0] !== 'config_setup' && segments[0] !== 'chat' && segments[0] !== 'kiosk' && (
                 <Pressable
                     onPress={() => router.push('/chat')}
-                    style={fabStyles.fabContainer}
+                    style={[fabStyles.fabContainer, { backgroundColor: primaryColor }]}
                 >
                     <Text style={fabStyles.fabIcon}>🤖</Text>
                 </Pressable>

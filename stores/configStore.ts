@@ -4,15 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ConfigState {
     tenantSlug: string | null;
-    // Kiosk config: which category IDs to show (empty = show all)
+    primaryColor: string;
     kioskCategoryIds: number[];
-    // Kiosk config: which categories act as Aderezos/Extras
     kioskExtraCategoryIds: number[];
     kioskTitle: string;
-    // Catalog feature flags (from server catalog_config)
     showClasesTab: boolean;
     showMesaDelivery: boolean;
-    // '' = catálogo de productos normal | 'dance' = academia de baile
     bookingMode: string;
     isConfigured: () => boolean;
     setTenantSlug: (slug: string) => void;
@@ -23,12 +20,14 @@ interface ConfigState {
     setShowClasesTab: (val: boolean) => void;
     setShowMesaDelivery: (val: boolean) => void;
     setBookingMode: (val: string) => void;
+    setPrimaryColor: (color: string) => void;
 }
 
 export const useConfigStore = create<ConfigState>()(
     persist(
         (set, get) => ({
             tenantSlug: null,
+            primaryColor: '#1B5E20',
             kioskCategoryIds: [],
             kioskExtraCategoryIds: [],
             kioskTitle: '🍔 Pedir Comida',
@@ -44,6 +43,7 @@ export const useConfigStore = create<ConfigState>()(
             setShowClasesTab: (val: boolean) => set({ showClasesTab: val }),
             setShowMesaDelivery: (val: boolean) => set({ showMesaDelivery: val }),
             setBookingMode: (val: string) => set({ bookingMode: val }),
+            setPrimaryColor: (color: string) => set({ primaryColor: color }),
         }),
         {
             name: 'catalogo-config',
