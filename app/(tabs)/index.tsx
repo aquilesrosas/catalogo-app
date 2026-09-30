@@ -113,9 +113,24 @@ export default function HomeScreen() {
         return <EmptyState />;
     };
 
+    const benefits = [
+        { icon: '🚀', label: 'Envío rápido' },
+        { icon: '🔒', label: 'Pago seguro' },
+        { icon: '⭐', label: 'Calidad garantizada' },
+    ];
+
     const renderHeader = () => (
         <View style={styles.headerWrapper}>
             <HeroHeader />
+            {/* Quick benefit chips */}
+            <View style={styles.benefitsRow}>
+                {benefits.map((b, i) => (
+                    <View key={i} style={styles.benefitChip}>
+                        <Text style={styles.benefitIcon}>{b.icon}</Text>
+                        <Text style={styles.benefitLabel}>{b.label}</Text>
+                    </View>
+                ))}
+            </View>
             <ClosedBanner />
 
             {/* MODULO PEDIR COMIDA (Kiosk) */}
@@ -391,6 +406,37 @@ const styles = StyleSheet.create({
     },
     headerWrapper: {
         backgroundColor: '#F5F6F8',
+    },
+    benefitsRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 8,
+        justifyContent: 'center',
+    },
+    benefitChip: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        gap: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    benefitIcon: {
+        fontSize: 16,
+    },
+    benefitLabel: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#333',
+        flexShrink: 1,
     },
     list: {
         paddingBottom: 20,

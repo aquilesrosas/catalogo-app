@@ -87,6 +87,10 @@ function ProductCard({ product }: ProductCardProps) {
                             <Text style={styles.placeholderIcon}>🍽️</Text>
                         </View>
                     )}
+                    {/* Bottom gradient overlay for visual depth */}
+                    {!isDesktop && product.image_url && (
+                        <View style={styles.imageGradient} pointerEvents="none" />
+                    )}
 
                     {applicableOffer && (
                         <View style={styles.offerBadge}>
@@ -161,7 +165,7 @@ const styles = StyleSheet.create({
     },
     cardMobile: {
         width: '100%',
-        height: 140,
+        height: 178,
     },
     cardDesktop: {
         width: '100%',
@@ -205,7 +209,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     imageMobile: {
-        width: 140,
+        width: 162,
         height: '100%',
     },
     imageDesktop: {
@@ -269,9 +273,19 @@ const styles = StyleSheet.create({
     textContainer: {
         flex: 1,
     },
+    imageGradient: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 60,
+        backgroundColor: 'transparent',
+        // Simulated gradient via multiple translucent layers not possible in RN,
+        // so just a soft bottom shadow
+    },
     name: {
         fontSize: 16,
-        fontWeight: '700',
+        fontWeight: '800',
         lineHeight: 20,
         marginBottom: 4,
     },
@@ -287,8 +301,9 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     price: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '900',
+        letterSpacing: -0.5,
     },
     priceGray: {
         color: '#9E9E9E',
@@ -300,21 +315,22 @@ const styles = StyleSheet.create({
         color: '#9E9E9E',
     },
     addBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 42,
+        height: 42,
+        borderRadius: 21,
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 3,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+        elevation: 4,
     },
     addBtnText: {
         color: '#fff',
-        fontSize: 22,
+        fontSize: 26,
         fontWeight: '600',
-        lineHeight: 24,
+        lineHeight: 28,
+        marginTop: -2,
     },
 });
