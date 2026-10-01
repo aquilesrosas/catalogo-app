@@ -17,7 +17,7 @@ function ProductCard({ product }: ProductCardProps) {
     const router = useRouter();
     const addItem = useCartStore((s) => s.addItem);
     const offers = useCatalogStore((s) => s.offers);
-    const primaryColor = useConfigStore((s: any) => s.primary_color) || '#D32F2F';
+    const primaryColor = useConfigStore((s) => s.primaryColor) || '#D32F2F';
     const { width } = useWindowDimensions();
     
     const isDesktop = width >= 300; // always use vertical grid card layout
@@ -116,35 +116,57 @@ function ProductCard({ product }: ProductCardProps) {
                         <Text style={[styles.name, { color: '#1a1a1a' }]} numberOfLines={isDesktop ? 2 : 1}>
                             {product.nombre_producto}
                         </Text>
-                        
-                        {!!product.descripcion && (
+
+                        {!!product.descripcion && isDesktop && (
                             <Text style={styles.description} numberOfLines={2}>
                                 {product.descripcion}
                             </Text>
                         )}
                     </View>
 
-                    <View style={styles.bottomRow}>
+                    {isDesktop ? (
+                        // Desktop (grid) layout: price + full-width button
                         <View>
-                            <Text style={[styles.price, { color: primaryColor }, !product.in_stock && styles.priceGray]}>
-                                {formatPrice(product.price)}
-                                {product.sells_by_weight && (
-                                    <Text style={styles.perUnit}> /{product.unit}</Text>
-                                )}
-                            </Text>
-                            {!isDesktop && <StockBadge stockLevel={product.stock_level} />}
+                            <View style={styles.priceRow}>
+                                <Text style={[styles.price, { color: primaryColor }, !product.in_stock && styles.priceGray]}>
+                                    {formatPrice(product.price)}
+                                    {product.sells_by_weight && (
+                                        <Text style={styles.perUnit}> /{product.unit}</Text>
+                                    )}
+                                </Text>
+                                <StockBadge stockLevel={product.stock_level} />
+                            </View>
+                            {product.in_stock && (
+                                <Pressable
+                                    style={[styles.addBtnFull, { backgroundColor: primaryColor }]}
+                                    onPress={handleAdd}
+                                >
+                                    <Text style={styles.addBtnFullText}>Agregar</Text>
+                                </Pressable>
+                            )}
                         </View>
-
-                        {product.in_stock && (
-                            <Pressable 
-                                style={[styles.addBtn, { backgroundColor: primaryColor }]} 
-                                onPress={handleAdd}
-                            >
-                                <Text style={styles.addBtnText}>+</Text>
-                            </Pressable>
-                        )}
-                    </View>
-                    {isDesktop && <StockBadge stockLevel={product.stock_level} />}
+                    ) : (
+                        // Mobile (list) layout: price + round button
+                        <View style={styles.bottomRow}>
+                            <View>
+                                <Text style={[styles.price, { color: primaryColor }, !product.in_stock && styles.priceGray]}>
+                                    {formatPrice(product.price)}
+                                    {product.sells_by_weight && (
+                                        <Text style={styles.perUnit}> /{product.unit}</Text>
+                                    )}
+                                </Text>
+                                <StockBadge stockLevel={product.stock_level} />
+                            </View>
+                            {product.in_stock && (
+                                <Pressable
+                                    style={[styles.addBtn, { backgroundColor: primaryColor }]}
+                                    onPress={handleAdd}
+                                >
+                                    <Text style={styles.addBtnText}>+</Text>
+                                </Pressable>
+                            )}
+                        </View>
+                    )}
                 </View>
             </Pressable>
         </Animated.View>
@@ -332,5 +354,23 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         lineHeight: 28,
         marginTop: -2,
+    },
+    priceRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    addBtnFull: {
+        borderRadius: 10,
+        paddingVertical: 9,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    addBtnFullText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '800',
+        letterSpacing: 0.3,
     },
 });

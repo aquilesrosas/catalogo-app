@@ -12,6 +12,7 @@ interface ConfigState {
     showMesaDelivery: boolean;
     showPedirComida: boolean;
     bookingMode: string;
+    destacadosIds: number[];
     isConfigured: () => boolean;
     setTenantSlug: (slug: string) => void;
     clearConfig: () => void;
@@ -23,6 +24,7 @@ interface ConfigState {
     setShowPedirComida: (val: boolean) => void;
     setBookingMode: (val: string) => void;
     setPrimaryColor: (color: string) => void;
+    setDestacadosIds: (ids: number[]) => void;
 }
 
 export const useConfigStore = create<ConfigState>()(
@@ -37,6 +39,7 @@ export const useConfigStore = create<ConfigState>()(
             showMesaDelivery: true,
             showPedirComida: true,
             bookingMode: '',
+            destacadosIds: [],
             isConfigured: () => !!get().tenantSlug,
             setTenantSlug: (slug: string) => set({ tenantSlug: slug }),
             clearConfig: () => set({ tenantSlug: null }),
@@ -48,6 +51,7 @@ export const useConfigStore = create<ConfigState>()(
             setShowPedirComida: (val: boolean) => set({ showPedirComida: val }),
             setBookingMode: (val: string) => set({ bookingMode: val }),
             setPrimaryColor: (color: string) => set({ primaryColor: color }),
+            setDestacadosIds: (ids: number[]) => set({ destacadosIds: ids }),
         }),
         {
             name: 'catalogo-config',

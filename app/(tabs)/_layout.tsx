@@ -104,6 +104,7 @@ export default function TabsLayout() {
     const setShowPedirComida = useConfigStore((s) => s.setShowPedirComida);
     const setBookingMode = useConfigStore((s) => s.setBookingMode);
     const setPrimaryColor = useConfigStore((s) => s.setPrimaryColor);
+    const setDestacadosIds = useConfigStore((s) => s.setDestacadosIds);
 
     // Sync feature flags + brand color from server on mount
     useEffect(() => {
@@ -113,6 +114,7 @@ export default function TabsLayout() {
             setShowMesaDelivery(cc.show_mesa_delivery !== false);
             setShowPedirComida(cc.show_pedir_comida !== false);
             setBookingMode((cc.booking_mode as string) || '');
+            setDestacadosIds((cc.destacados_ids as number[]) || []);
             if (config.primary_color) setPrimaryColor(config.primary_color);
         }).catch(() => {});
     }, []);

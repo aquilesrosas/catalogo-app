@@ -9,8 +9,10 @@ import {
     Pressable,
     Linking,
     Modal,
+    ScrollView,
     useWindowDimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCatalogStore } from '@/stores/catalogStore';
@@ -58,6 +60,7 @@ export default function HomeScreen() {
     const bookingMode = useConfigStore((s) => s.bookingMode);
     const showPedirComida = useConfigStore((s) => s.showPedirComida);
     const primaryColor = useConfigStore((s) => s.primaryColor);
+    const destacadosIds = useConfigStore((s) => s.destacadosIds);
     const { items: cartItems, getItemCount, getTotal } = useCartStore();
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const [hookTagline, setHookTagline] = useState('');
@@ -76,6 +79,13 @@ export default function HomeScreen() {
             return aStock - bStock;
         });
     }, [products]);
+
+    // Featured products in the order defined by destacadosIds
+    const destacadosProducts = useMemo(() => {
+        if (!destacadosIds.length || !products.length) return [];
+        const map = new Map(products.map(p => [p.id_producto, p]));
+        return destacadosIds.map(id => map.get(id)).filter(Boolean) as typeof products;
+    }, [products, destacadosIds]);
 
     // Sync puntos del perfil al montar y al refrescar
     const syncProfile = useCallback(async () => {
@@ -150,6 +160,56 @@ export default function HomeScreen() {
                     <Text style={styles.hookSubtitle}>{hookTagline}</Text>
                 </View>
             ) : null}
+
+            {/* FRANJA HORIZONTAL DE PRODUCTOS DESTACADOS */}
+            {destacadosProducts.length > 0 && (
+                <View style={styles.featuredSection}>
+                    <Text style={[styles.featuredTitle, { color: primaryColor }]}>⭐ Destacados</Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.featuredScroll}
+                    >
+                        {destacadosProducts.map((product) => {
+                            const isOutOfStock = !(product as any).in_stock;
+                            return (
+                                <Pressable
+                                    key={product.id_producto}
+                                    style={styles.featuredCard}
+                                    onPress={() => router.push(`/product/${product.id_producto}`)}
+                                >
+                                    {isOutOfStock && (
+                                        <View style={styles.featuredOutOfStock}>
+                                            <Text style={styles.featuredAgotadoText}>Agotado</Text>
+                                        </View>
+                                    )}
+                                    <View style={styles.featuredImageWrap}>
+                                        {(product as any).image_url ? (
+                                            <Image
+                                                source={{ uri: (product as any).image_url }}
+                                                style={{ width: '100%', height: '100%' }}
+                                                contentFit="cover"
+                                            />
+                                        ) : (
+                                            <View style={styles.featuredImagePlaceholder}>
+                                                <Text style={{ fontSize: 32, opacity: 0.4 }}>🍽️</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <View style={styles.featuredInfo}>
+                                        <Text style={styles.featuredName} numberOfLines={2}>
+                                            {product.nombre_producto}
+                                        </Text>
+                                        <Text style={[styles.featuredPrice, { color: primaryColor }]}>
+                                            {formatPrice(product.price)}
+                                        </Text>
+                                    </View>
+                                </Pressable>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+            )}
 
             {/* MODULO PEDIR COMIDA (Kiosk) */}
             {showPedirComida && (
@@ -827,5 +887,80 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: '#aaa',
         marginLeft: 8,
+    },
+    // ─── Featured Products shelf ───
+    featuredSection: {
+        paddingTop: 14,
+        paddingBottom: 4,
+    },
+    featuredTitle: {
+        fontSize: 17,
+        fontWeight: '800',
+        paddingHorizontal: 16,
+        marginBottom: 10,
+    },
+    featuredScroll: {
+        paddingHorizontal: 16,
+        gap: 12,
+    },
+    featuredCard: {
+        width: 148,
+        backgroundColor: '#fff',
+        borderRadius: 14,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    featuredImageWrap: {
+        width: 148,
+        height: 110,
+        backgroundColor: '#F5F5F5',
+    },
+    featuredImagePlaceholder: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F0F4F0',
+    },
+    featuredInfo: {
+        padding: 10,
+    },
+    featuredName: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#1a1a1a',
+        lineHeight: 17,
+        marginBottom: 4,
+    },
+    featuredPrice: {
+        fontSize: 16,
+        fontWeight: '900',
+        letterSpacing: -0.5,
+    },
+    featuredOutOfStock: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(255,255,255,0.55)',
+        zIndex: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    featuredAgotadoText: {
+        backgroundColor: 'rgba(0,0,0,0.65)',
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: '900',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 8,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
 });
