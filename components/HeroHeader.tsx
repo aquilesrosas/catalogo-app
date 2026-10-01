@@ -51,7 +51,7 @@ function MarqueeStrip({ text, primaryColor }: { text: string; primaryColor: stri
     );
 }
 
-export default function HeroHeader() {
+export default function HeroHeader({ showTagline = true }: { showTagline?: boolean }) {
     const localConfig = useConfigStore((s: any) => s);
     const [storeConfig, setStoreConfig] = useState<StoreConfig | null>(null);
     const insets = useSafeAreaInsets();
@@ -102,7 +102,7 @@ export default function HeroHeader() {
                     <Text style={styles.storeName} numberOfLines={1}>{name}</Text>
 
                     {/* Tagline */}
-                    {tagline ? (
+                    {showTagline && tagline ? (
                         <Text style={styles.tagline} numberOfLines={2}>{tagline}</Text>
                     ) : null}
 
@@ -122,7 +122,7 @@ export default function HeroHeader() {
 
 const styles = StyleSheet.create({
     hero: {
-        paddingBottom: 24,
+        paddingBottom: 32,
         position: 'relative',
         overflow: 'hidden',
     },

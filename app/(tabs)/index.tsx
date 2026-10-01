@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCatalogStore } from '@/stores/catalogStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useConfigStore } from '@/stores/configStore';
-import { getProfile } from '@/services/api';
+import { getProfile, getStoreConfig } from '@/services/api';
 import ProductCard from '@/components/ProductCard';
 import StickyCategoryTabs from '@/components/StickyCategoryTabs';
 import SearchBar from '@/components/SearchBar';
@@ -57,8 +57,10 @@ export default function HomeScreen() {
     const slug = useConfigStore((s) => s.tenantSlug);
     const bookingMode = useConfigStore((s) => s.bookingMode);
     const showPedirComida = useConfigStore((s) => s.showPedirComida);
+    const primaryColor = useConfigStore((s) => s.primaryColor);
     const { items: cartItems, getItemCount, getTotal } = useCartStore();
     const [bannerDismissed, setBannerDismissed] = useState(false);
+    const [hookTagline, setHookTagline] = useState('');
     const [pointsModalVisible, setPointsModalVisible] = useState(false);
     const showBanner = !isLoggedIn() && !bannerDismissed;
     const insets = useSafeAreaInsets();
@@ -91,6 +93,13 @@ export default function HomeScreen() {
     }, [syncProfile]);
 
     useEffect(() => {
+        getStoreConfig().then(config => {
+            const cc = (config.catalog_config || {}) as any;
+            setHookTagline(cc.tagline || '');
+        }).catch(() => {});
+    }, [slug]);
+
+    useEffect(() => {
         // Table Ordering QR redirect
         if (params.kiosk) {
             router.replace(`/kiosk?kiosk=${params.kiosk}`);
@@ -114,25 +123,33 @@ export default function HomeScreen() {
         return <EmptyState />;
     };
 
-    const benefits = [
-        { icon: '🚀', label: 'Envío rápido' },
-        { icon: '🔒', label: 'Pago seguro' },
-        { icon: '⭐', label: 'Calidad garantizada' },
-    ];
-
     const renderHeader = () => (
         <View style={styles.headerWrapper}>
-            <HeroHeader />
-            {/* Quick benefit chips */}
-            <View style={styles.benefitsRow}>
-                {benefits.map((b, i) => (
-                    <View key={i} style={styles.benefitChip}>
-                        <Text style={styles.benefitIcon}>{b.icon}</Text>
-                        <Text style={styles.benefitLabel}>{b.label}</Text>
-                    </View>
-                ))}
+            {/* Hero + cart pill overlay */}
+            <View style={{ position: 'relative' }}>
+                <HeroHeader showTagline={false} />
+                {cartItems.length > 0 && (
+                    <Pressable
+                        style={[styles.heroCartPill, { top: insets.top + 10 }]}
+                        onPress={() => router.push('/cart')}
+                    >
+                        <View style={[styles.heroCartBadge, { backgroundColor: primaryColor }]}>
+                            <Text style={styles.heroCartBadgeText}>{getItemCount()}</Text>
+                        </View>
+                        <Text style={styles.heroCartAmount}>{formatPrice(getTotal())}</Text>
+                    </Pressable>
+                )}
             </View>
+
             <ClosedBanner />
+
+            {/* Hook section — aparece solo si el negocio tiene tagline configurado */}
+            {hookTagline ? (
+                <View style={styles.hookSection}>
+                    <Text style={styles.hookTitle}>Todo lo que buscás</Text>
+                    <Text style={styles.hookSubtitle}>{hookTagline}</Text>
+                </View>
+            ) : null}
 
             {/* MODULO PEDIR COMIDA (Kiosk) */}
             {showPedirComida && (
@@ -335,25 +352,18 @@ export default function HomeScreen() {
                 windowSize={5}
             />
 
-            {/* ─── Floating Cart Bar ─────── */}
+            {/* ─── Floating Cart Pill ─────── */}
             {cartItems.length > 0 && (
-                <View style={[styles.cartBar, { bottom: insets.bottom + 70 }]}>
-                    <View style={styles.cartBarLeft}>
-                        <View style={styles.cartBadge}>
-                            <Text style={styles.cartBadgeText}>{getItemCount()}</Text>
-                        </View>
-                        <View>
-                            <Text style={styles.cartBarTitle}>Tu Carrito</Text>
-                            <Text style={styles.cartBarTotal}>{formatPrice(getTotal())}</Text>
-                        </View>
+                <Pressable
+                    style={[styles.cartPill, { bottom: insets.bottom + 74, backgroundColor: primaryColor }]}
+                    onPress={() => router.push('/cart')}
+                >
+                    <View style={styles.cartPillBadge}>
+                        <Text style={[styles.cartPillBadgeText, { color: primaryColor }]}>{getItemCount()}</Text>
                     </View>
-                    <Pressable
-                        style={styles.payBtn}
-                        onPress={() => router.push('/cart')}
-                    >
-                        <Text style={styles.payBtnText}>Ver Carrito</Text>
-                    </Pressable>
-                </View>
+                    <Text style={styles.cartPillTotal}>{formatPrice(getTotal())}</Text>
+                    <Text style={styles.cartPillArrow}>→</Text>
+                </Pressable>
             )}
 
             {/* Modal Info Puntos */}
@@ -409,37 +419,6 @@ const styles = StyleSheet.create({
     },
     headerWrapper: {
         backgroundColor: '#F5F6F8',
-    },
-    benefitsRow: {
-        flexDirection: 'row',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        gap: 8,
-        justifyContent: 'center',
-    },
-    benefitChip: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-        gap: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    benefitIcon: {
-        fontSize: 16,
-    },
-    benefitLabel: {
-        fontSize: 11,
-        fontWeight: '700',
-        color: '#333',
-        flexShrink: 1,
     },
     list: {
         paddingBottom: 20,
@@ -684,29 +663,73 @@ const styles = StyleSheet.create({
     fabIcon: {
         fontSize: 30,
     },
-    // ─── Floating Cart Bar ───
-    cartBar: {
+    // ─── Hero Cart Pill (overlay sobre el hero) ───
+    heroCartPill: {
         position: 'absolute',
-        left: 16,
         right: 16,
-        backgroundColor: '#1B5E20',
-        borderRadius: 16,
-        padding: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderRadius: 24,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    heroCartBadge: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    heroCartBadgeText: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: '900',
+    },
+    heroCartAmount: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    // ─── Hook Section ───
+    hookSection: {
+        paddingHorizontal: 16,
+        paddingTop: 14,
+        paddingBottom: 12,
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#E8E8E8',
+    },
+    hookTitle: {
+        fontSize: 17,
+        fontWeight: '800',
+        color: '#111',
+        marginBottom: 3,
+    },
+    hookSubtitle: {
+        fontSize: 13,
+        color: '#666',
+        lineHeight: 18,
+    },
+    // ─── Floating Cart Pill ───
+    cartPill: {
+        position: 'absolute',
+        alignSelf: 'center',
+        left: 24,
+        right: 24,
+        borderRadius: 30,
+        paddingVertical: 11,
+        paddingHorizontal: 16,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        shadowColor: '#1B5E20',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
-        shadowRadius: 10,
-        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 8,
+        elevation: 8,
     },
-    cartBarLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    cartBadge: {
+    cartPillBadge: {
         backgroundColor: '#fff',
         width: 24,
         height: 24,
@@ -714,32 +737,21 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    cartBadgeText: {
-        color: '#1B5E20',
+    cartPillBadgeText: {
         fontSize: 12,
         fontWeight: '900',
     },
-    cartBarTitle: {
-        color: '#A5D6A7',
-        fontSize: 11,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-    },
-    cartBarTotal: {
+    cartPillTotal: {
+        flex: 1,
         color: '#fff',
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: '800',
+        marginLeft: 10,
     },
-    payBtn: {
-        backgroundColor: '#fff',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 12,
-    },
-    payBtnText: {
-        color: '#1B5E20',
-        fontWeight: '800',
-        fontSize: 14,
+    cartPillArrow: {
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 18,
+        fontWeight: '600',
     },
     // ─── Modal Puntos ───
     modalOverlay: {
