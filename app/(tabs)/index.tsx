@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCatalogStore } from '@/stores/catalogStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useConfigStore } from '@/stores/configStore';
-import { getProfile, getStoreConfig } from '@/services/api';
+import { getProfile, getStoreConfig, getProductsByIds, Product } from '@/services/api';
 import ProductCard from '@/components/ProductCard';
 import StickyCategoryTabs from '@/components/StickyCategoryTabs';
 import SearchBar from '@/components/SearchBar';
@@ -80,12 +80,16 @@ export default function HomeScreen() {
         });
     }, [products]);
 
-    // Featured products in the order defined by destacadosIds
-    const destacadosProducts = useMemo(() => {
-        if (!destacadosIds.length || !products.length) return [];
-        const map = new Map(products.map(p => [p.id_producto, p]));
-        return destacadosIds.map(id => map.get(id)).filter(Boolean) as typeof products;
-    }, [products, destacadosIds]);
+    // Featured products fetched independently (not from paginated list)
+    const [destacadosProducts, setDestacadosProducts] = useState<Product[]>([]);
+    useEffect(() => {
+        if (!destacadosIds.length) { setDestacadosProducts([]); return; }
+        getProductsByIds(destacadosIds).then(fetched => {
+            // Keep the order defined by destacadosIds
+            const map = new Map(fetched.map(p => [p.id_producto, p]));
+            setDestacadosProducts(destacadosIds.map(id => map.get(id)).filter(Boolean) as Product[]);
+        }).catch(() => {});
+    }, [destacadosIds]);
 
     // Sync puntos del perfil al montar y al refrescar
     const syncProfile = useCallback(async () => {

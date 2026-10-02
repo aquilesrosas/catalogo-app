@@ -209,6 +209,12 @@ export async function getProduct(id: number): Promise<Product> {
     return data;
 }
 
+export async function getProductsByIds(ids: number[]): Promise<Product[]> {
+    if (!ids.length) return [];
+    const { data } = await api.get('products/', { params: { ids: ids.join(',') } });
+    return Array.isArray(data) ? data : (data.results || []);
+}
+
 export async function getCategories(params?: { for_kiosk?: boolean }): Promise<Category[]> {
     const { data } = await api.get('categories/', { params });
     return data;
