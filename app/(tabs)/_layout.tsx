@@ -105,6 +105,7 @@ export default function TabsLayout() {
     const setBookingMode = useConfigStore((s) => s.setBookingMode);
     const setPrimaryColor = useConfigStore((s) => s.setPrimaryColor);
     const setDestacadosIds = useConfigStore((s) => s.setDestacadosIds);
+    const setStoreInfo = useConfigStore((s) => s.setStoreInfo);
 
     // Sync feature flags + brand color from server on mount
     useEffect(() => {
@@ -116,6 +117,11 @@ export default function TabsLayout() {
             setBookingMode((cc.booking_mode as string) || '');
             setDestacadosIds((cc.destacados_ids as number[]) || []);
             if (config.primary_color) setPrimaryColor(config.primary_color);
+            setStoreInfo(
+                config.name || '',
+                config.store_address || '',
+                (cc.time_ranges as { start: string; end: string }[]) || [],
+            );
         }).catch(() => {});
     }, []);
 
