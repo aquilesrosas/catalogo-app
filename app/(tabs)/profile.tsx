@@ -32,6 +32,7 @@ export default function LoginScreen() {
     const storeTimeRanges = useConfigStore((s) => s.storeTimeRanges);
 
     const [step, setStep] = useState<Step>(isLoggedIn() ? 'logged_in' : 'phone');
+    const [loginMode, setLoginMode] = useState<'phone' | 'email'>('phone');
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
     const [name, setName] = useState('');
@@ -42,6 +43,7 @@ export default function LoginScreen() {
     const [devCode, setDevCode] = useState<string | null>(null);
     const [showRegister, setShowRegister] = useState(false);
     const [showStaffLogin, setShowStaffLogin] = useState(false);
+    const [showStoreInfo, setShowStoreInfo] = useState(false);
     const [staffUsername, setStaffUsername] = useState('');
     const [staffPassword, setStaffPasswordState] = useState('');
 
@@ -78,15 +80,19 @@ export default function LoginScreen() {
     };
 
     const handleLoginPassword = async () => {
-        if (!phone || !password) { Alert.alert('Aviso', 'Ingresá tu teléfono y contraseña'); return; }
+        const identifier = loginMode === 'phone' ? phone.trim() : email.trim();
+        if (!identifier || !password) {
+            Alert.alert('Aviso', `Ingresá tu ${loginMode === 'phone' ? 'teléfono' : 'email'} y contraseña`);
+            return;
+        }
         setLoading(true);
         try {
-            const result = await loginPassword(phone.trim(), password);
+            const result = await loginPassword(identifier, password, loginMode === 'email');
             login(result.token, result.client.name, result.client.phone, result.client.id);
             animateTransition('logged_in');
             Alert.alert('✅ ¡Listo!', `Bienvenido, ${result.client.name}`);
         } catch (err: any) {
-            Alert.alert('Error', err?.response?.data?.error || 'Teléfono o contraseña incorrectos');
+            Alert.alert('Error', err?.response?.data?.error || 'Credenciales incorrectas');
         } finally { setLoading(false); }
     };
 
@@ -164,22 +170,30 @@ export default function LoginScreen() {
         }
     };
 
-    // Store info card — shown when not logged in
-    const storeCard = storeName ? (
-        <View style={[s.storeCard, { borderColor: primaryColor + '33' }]}>
-            <View style={[s.storeCardAccent, { backgroundColor: primaryColor }]} />
-            <View style={s.storeCardBody}>
-                <Text style={[s.storeCardName, { color: primaryColor }]}>{storeName}</Text>
-                {!!storeAddress && (
-                    <Text style={s.storeCardRow}>📍 {storeAddress}</Text>
-                )}
-                {storeTimeRanges.length > 0 && (
-                    <Text style={s.storeCardRow}>
-                        🕐 {storeTimeRanges.map(r => `${r.start} – ${r.end}`).join(' · ')}
-                    </Text>
-                )}
-            </View>
-        </View>
+    // Store info collapsible button
+    const storeInfoBlock = storeName ? (
+        <>
+            <Pressable style={[s.storeInfoBtn, { borderColor: primaryColor + '55' }]}
+                onPress={() => setShowStoreInfo(v => !v)}>
+                <Text style={[s.storeInfoBtnText, { color: primaryColor }]}>
+                    🏪 {storeName}
+                </Text>
+                <Text style={{ color: primaryColor, fontSize: 16 }}>{showStoreInfo ? '▲' : '▼'}</Text>
+            </Pressable>
+            {showStoreInfo && (
+                <View style={[s.storeCard, { borderColor: primaryColor + '33' }]}>
+                    <View style={[s.storeCardAccent, { backgroundColor: primaryColor }]} />
+                    <View style={s.storeCardBody}>
+                        {!!storeAddress && <Text style={s.storeCardRow}>📍 {storeAddress}</Text>}
+                        {storeTimeRanges.length > 0 && (
+                            <Text style={s.storeCardRow}>
+                                🕐 {storeTimeRanges.map(r => `${r.start} – ${r.end}`).join(' · ')}
+                            </Text>
+                        )}
+                    </View>
+                </View>
+            )}
+        </>
     ) : null;
 
     return (
@@ -208,9 +222,39 @@ export default function LoginScreen() {
                         {/* ── LOGIN ── */}
                         {step === 'phone' && (
                             <View style={s.formArea}>
-                                <Text style={s.inputLabel}>Tu teléfono *</Text>
-                                <TextInput style={s.input} value={phone} onChangeText={setPhone}
-                                    placeholder="Ej: 1123456789" placeholderTextColor="#aaa" keyboardType="phone-pad" />
+                                {/* Toggle teléfono / email */}
+                                <View style={[s.loginToggle, { borderColor: primaryColor + '44' }]}>
+                                    <Pressable
+                                        style={[s.loginToggleBtn, loginMode === 'phone' && { backgroundColor: primaryColor }]}
+                                        onPress={() => { setLoginMode('phone'); setEmail(''); }}>
+                                        <Text style={[s.loginToggleBtnText, loginMode === 'phone' && { color: '#fff' }]}>
+                                            📱 Teléfono
+                                        </Text>
+                                    </Pressable>
+                                    <Pressable
+                                        style={[s.loginToggleBtn, loginMode === 'email' && { backgroundColor: primaryColor }]}
+                                        onPress={() => { setLoginMode('email'); setPhone(''); }}>
+                                        <Text style={[s.loginToggleBtnText, loginMode === 'email' && { color: '#fff' }]}>
+                                            ✉️ Email
+                                        </Text>
+                                    </Pressable>
+                                </View>
+
+                                {loginMode === 'phone' ? (
+                                    <>
+                                        <Text style={s.inputLabel}>Tu teléfono *</Text>
+                                        <TextInput style={s.input} value={phone} onChangeText={setPhone}
+                                            placeholder="Ej: 1123456789" placeholderTextColor="#aaa" keyboardType="phone-pad" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <Text style={s.inputLabel}>Tu email *</Text>
+                                        <TextInput style={s.input} value={email} onChangeText={setEmail}
+                                            placeholder="tu@email.com" placeholderTextColor="#aaa"
+                                            keyboardType="email-address" autoCapitalize="none" />
+                                    </>
+                                )}
+
                                 <Text style={s.inputLabel}>Tu contraseña *</Text>
                                 <TextInput style={s.input} value={password} onChangeText={setPasswordState}
                                     placeholder="******" placeholderTextColor="#aaa" secureTextEntry />
@@ -240,8 +284,7 @@ export default function LoginScreen() {
                                     <Text style={s.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
                                 </Pressable>
 
-                                {/* Datos del local */}
-                                {storeCard}
+                                {storeInfoBlock}
                             </View>
                         )}
 
@@ -316,8 +359,7 @@ export default function LoginScreen() {
                                     </Pressable>
                                 )}
 
-                                {/* Datos del local para usuarios logueados */}
-                                {storeCard}
+                                {storeInfoBlock}
 
                                 <Pressable style={s.changeConfigBtn} onPress={confirmChangeLocal}>
                                     <Text style={s.changeConfigBtnText}>🏘️ Cambiar de Local</Text>
@@ -446,15 +488,30 @@ const s = StyleSheet.create({
     separatorText: { fontSize: 12, color: '#999', fontWeight: '600' },
     changeConfigBtn: { paddingVertical: 12, alignItems: 'center', marginTop: 4 },
     changeConfigBtnText: { color: '#666', fontSize: 14, fontWeight: '600' },
-    // Store info card
-    storeCard: {
-        marginTop: 24, borderRadius: 16, borderWidth: 1,
-        backgroundColor: '#fff', overflow: 'hidden',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+    // Login toggle
+    loginToggle: {
+        flexDirection: 'row', borderRadius: 12, borderWidth: 1.5,
+        overflow: 'hidden', backgroundColor: '#f5f5f5',
     },
-    storeCardAccent: { height: 4 },
-    storeCardBody: { padding: 16, gap: 6 },
-    storeCardName: { fontSize: 17, fontWeight: '800', marginBottom: 4 },
+    loginToggleBtn: {
+        flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10,
+    },
+    loginToggleBtnText: { fontSize: 14, fontWeight: '700', color: '#666' },
+    // Store info button + card
+    storeInfoBtn: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1.5,
+        backgroundColor: '#fff', marginTop: 8,
+    },
+    storeInfoBtnText: { fontSize: 14, fontWeight: '700' },
+    storeCard: {
+        borderRadius: 12, borderWidth: 1,
+        backgroundColor: '#fff', overflow: 'hidden',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    },
+    storeCardAccent: { height: 3 },
+    storeCardBody: { padding: 14, gap: 4 },
+    storeCardName: { fontSize: 15, fontWeight: '800', marginBottom: 2 },
     storeCardRow: { fontSize: 13, color: '#555', lineHeight: 20 },
     // Logged in
     loggedInScroll: { flex: 1 },

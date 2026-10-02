@@ -332,8 +332,9 @@ export async function logoutAPI(): Promise<void> {
     await api.post('auth/logout/');
 }
 
-export async function loginPassword(phone: string, password: string): Promise<OTPVerifyResponse> {
-    const { data } = await api.post('auth/login-password/', { phone, password });
+export async function loginPassword(identifier: string, password: string, isEmail?: boolean): Promise<OTPVerifyResponse> {
+    const body = isEmail ? { email: identifier, password } : { phone: identifier, password };
+    const { data } = await api.post('auth/login-password/', body);
     return data;
 }
 
