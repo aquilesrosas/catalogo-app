@@ -13,6 +13,7 @@ import {
     Platform,
     Modal,
     ScrollView,
+    Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
@@ -30,6 +31,9 @@ export default function LoginScreen() {
     const storeName = useConfigStore((s) => s.storeName);
     const storeAddress = useConfigStore((s) => s.storeAddress);
     const storeTimeRanges = useConfigStore((s) => s.storeTimeRanges);
+    const storeWhatsapp = useConfigStore((s) => s.storeWhatsapp);
+    const storeLat = useConfigStore((s) => s.storeLat);
+    const storeLng = useConfigStore((s) => s.storeLng);
 
     const [step, setStep] = useState<Step>(isLoggedIn() ? 'logged_in' : 'phone');
     const [loginMode, setLoginMode] = useState<'phone' | 'email'>('phone');
@@ -170,6 +174,19 @@ export default function LoginScreen() {
         }
     };
 
+    const openWhatsApp = () => {
+        if (!storeWhatsapp) return;
+        Linking.openURL(`https://wa.me/${storeWhatsapp}`).catch(() => {});
+    };
+
+    const openMaps = () => {
+        if (!storeLat || !storeLng) {
+            if (storeAddress) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`).catch(() => {});
+            return;
+        }
+        Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${storeLat},${storeLng}`).catch(() => {});
+    };
+
     // Store info collapsible button
     const storeInfoBlock = storeName ? (
         <>
@@ -189,6 +206,20 @@ export default function LoginScreen() {
                             <Text style={s.storeCardRow}>
                                 🕐 {storeTimeRanges.map(r => `${r.start} – ${r.end}`).join(' · ')}
                             </Text>
+                        )}
+                        {(!!storeWhatsapp || !!(storeLat || storeAddress)) && (
+                            <View style={s.storeCardActions}>
+                                {!!storeWhatsapp && (
+                                    <Pressable style={[s.storeActionBtn, { backgroundColor: '#25D366' }]} onPress={openWhatsApp}>
+                                        <Text style={s.storeActionBtnText}>💬 WhatsApp</Text>
+                                    </Pressable>
+                                )}
+                                {!!(storeLat || storeAddress) && (
+                                    <Pressable style={[s.storeActionBtn, { backgroundColor: '#4285F4' }]} onPress={openMaps}>
+                                        <Text style={s.storeActionBtnText}>🗺️ Ver en mapa</Text>
+                                    </Pressable>
+                                )}
+                            </View>
                         )}
                     </View>
                 </View>
@@ -513,6 +544,9 @@ const s = StyleSheet.create({
     storeCardBody: { padding: 14, gap: 4 },
     storeCardName: { fontSize: 15, fontWeight: '800', marginBottom: 2 },
     storeCardRow: { fontSize: 13, color: '#555', lineHeight: 20 },
+    storeCardActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+    storeActionBtn: { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center' },
+    storeActionBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
     // Logged in
     loggedInScroll: { flex: 1 },
     loggedInContent: { paddingBottom: 40, gap: 12 },

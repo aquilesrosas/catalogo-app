@@ -121,6 +121,9 @@ export default function TabsLayout() {
                 config.name || '',
                 config.store_address || '',
                 (cc.time_ranges as { start: string; end: string }[]) || [],
+                (cc.store_whatsapp as string) || '',
+                config.store_lat ?? null,
+                config.store_lng ?? null,
             );
         }).catch(() => {});
     }, []);

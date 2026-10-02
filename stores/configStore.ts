@@ -16,6 +16,9 @@ interface ConfigState {
     storeName: string;
     storeAddress: string;
     storeTimeRanges: { start: string; end: string }[];
+    storeWhatsapp: string;
+    storeLat: number | null;
+    storeLng: number | null;
     isConfigured: () => boolean;
     setTenantSlug: (slug: string) => void;
     clearConfig: () => void;
@@ -28,7 +31,7 @@ interface ConfigState {
     setBookingMode: (val: string) => void;
     setPrimaryColor: (color: string) => void;
     setDestacadosIds: (ids: number[]) => void;
-    setStoreInfo: (name: string, address: string, timeRanges: { start: string; end: string }[]) => void;
+    setStoreInfo: (name: string, address: string, timeRanges: { start: string; end: string }[], whatsapp?: string, lat?: number | null, lng?: number | null) => void;
 }
 
 export const useConfigStore = create<ConfigState>()(
@@ -47,6 +50,9 @@ export const useConfigStore = create<ConfigState>()(
             storeName: '',
             storeAddress: '',
             storeTimeRanges: [],
+            storeWhatsapp: '',
+            storeLat: null,
+            storeLng: null,
             isConfigured: () => !!get().tenantSlug,
             setTenantSlug: (slug: string) => set({ tenantSlug: slug }),
             clearConfig: () => set({ tenantSlug: null }),
@@ -59,7 +65,7 @@ export const useConfigStore = create<ConfigState>()(
             setBookingMode: (val: string) => set({ bookingMode: val }),
             setPrimaryColor: (color: string) => set({ primaryColor: color }),
             setDestacadosIds: (ids: number[]) => set({ destacadosIds: ids }),
-            setStoreInfo: (name, address, timeRanges) => set({ storeName: name, storeAddress: address, storeTimeRanges: timeRanges }),
+            setStoreInfo: (name, address, timeRanges, whatsapp = '', lat = null, lng = null) => set({ storeName: name, storeAddress: address, storeTimeRanges: timeRanges, storeWhatsapp: whatsapp, storeLat: lat, storeLng: lng }),
         }),
         {
             name: 'catalogo-config',
