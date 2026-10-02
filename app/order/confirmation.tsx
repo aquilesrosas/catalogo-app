@@ -8,12 +8,15 @@ import {
     Platform,
     Linking,
     Modal,
+    TextInput,
+    KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useLastOrderStore } from '@/stores/lastOrderStore';
 import { useAuthStore } from '@/stores/authStore';
 import { formatPrice } from '@/utils/format';
 import { getStoreConfig } from '@/services/api';
+import { getSorteoActivo, participarSorteo, SorteoActivo } from '@/services/sorteo';
 
 const DELIVERY_LABELS: Record<string, string> = {
     LOCAL: '🏪 Retiro en local',
@@ -55,6 +58,15 @@ export default function OrderConfirmationScreen() {
     const [storeName, setStoreName] = useState<string>('');
     const [showAccountModal, setShowAccountModal] = useState(false);
 
+    // Sorteo
+    const [sorteoActivo, setSorteoActivo] = useState<SorteoActivo | null>(null);
+    const [showSorteoModal, setShowSorteoModal] = useState(false);
+    const [sorteoNombre, setSorteoNombre] = useState('');
+    const [sorteoTelefono, setSorteoTelefono] = useState('');
+    const [sorteoEnviado, setSorteoEnviado] = useState(false);
+    const [sorteoMensaje, setSorteoMensaje] = useState('');
+    const [sorteoLoading, setSorteoLoading] = useState(false);
+
     // Si no hay datos de pedido (navegación directa), ir a inicio
     useEffect(() => {
         if (!order) {
@@ -67,6 +79,16 @@ export default function OrderConfirmationScreen() {
             const cc = cfg?.catalog_config as Record<string, unknown> | undefined;
             setWhatsappPhone((cc?.whatsapp_phone as string) || '');
             setStoreName(cfg?.name || '');
+        }).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (!order) return;
+        getSorteoActivo().then((s) => {
+            if (s && parseFloat(order.total) >= parseFloat(s.compra_minima)) {
+                setSorteoActivo(s);
+                setShowSorteoModal(true);
+            }
         }).catch(() => {});
     }, []);
 
@@ -90,6 +112,25 @@ export default function OrderConfirmationScreen() {
     const handleGoHome = () => {
         clearOrder();
         router.replace('/');
+    };
+
+    const handleParticiparSorteo = async () => {
+        if (!sorteoNombre.trim() || !sorteoTelefono.trim()) return;
+        if (!sorteoActivo || !order) return;
+        setSorteoLoading(true);
+        try {
+            const res = await participarSorteo({
+                nombre: sorteoNombre.trim(),
+                telefono: sorteoTelefono.trim(),
+                order_id: order.id,
+            });
+            setSorteoMensaje(res.mensaje || '¡Inscripto!');
+            setSorteoEnviado(true);
+        } catch {
+            setSorteoMensaje('Hubo un error. Intentá de nuevo.');
+        } finally {
+            setSorteoLoading(false);
+        }
     };
 
     const handleGoOrders = () => {
@@ -254,6 +295,78 @@ export default function OrderConfirmationScreen() {
                     </Pressable>
                 </View>
             </ScrollView>
+
+            {/* ── Modal: Sorteo ── */}
+            {sorteoActivo && (
+                <Modal
+                    visible={showSorteoModal}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowSorteoModal(false)}
+                >
+                    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                        <View style={styles.modalOverlay}>
+                            <View style={styles.modalCard}>
+                                {!sorteoEnviado ? (
+                                    <>
+                                        <Text style={styles.modalEmoji}>🎰</Text>
+                                        <Text style={styles.modalTitle}>¡Participá en el sorteo!</Text>
+                                        <Text style={[styles.modalText, { marginBottom: 4 }]}>
+                                            <Text style={{ fontWeight: '700' }}>{sorteoActivo.nombre}</Text>
+                                        </Text>
+                                        <Text style={[styles.modalText, { marginBottom: 4 }]}>
+                                            🏆 Premio: {sorteoActivo.premio}
+                                        </Text>
+                                        <Text style={[styles.modalText, { marginBottom: 16 }]}>
+                                            Tu compra califica. Dejá tus datos para participar:
+                                        </Text>
+
+                                        <TextInput
+                                            style={styles.sorteoInput}
+                                            placeholder="Tu nombre completo"
+                                            value={sorteoNombre}
+                                            onChangeText={setSorteoNombre}
+                                            autoCapitalize="words"
+                                        />
+                                        <TextInput
+                                            style={styles.sorteoInput}
+                                            placeholder="Número de teléfono"
+                                            value={sorteoTelefono}
+                                            onChangeText={setSorteoTelefono}
+                                            keyboardType="phone-pad"
+                                        />
+
+                                        <Pressable
+                                            style={[styles.modalBtnPrimary, { marginTop: 8 }]}
+                                            onPress={handleParticiparSorteo}
+                                            disabled={sorteoLoading}
+                                        >
+                                            <Text style={styles.modalBtnPrimaryText}>
+                                                {sorteoLoading ? 'Enviando...' : '🎟️ ¡Quiero participar!'}
+                                            </Text>
+                                        </Pressable>
+                                        <Pressable style={styles.modalBtnSkip} onPress={() => setShowSorteoModal(false)}>
+                                            <Text style={styles.modalBtnSkipText}>No, gracias</Text>
+                                        </Pressable>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Text style={styles.modalEmoji}>🎉</Text>
+                                        <Text style={styles.modalTitle}>¡Listo!</Text>
+                                        <Text style={styles.modalText}>{sorteoMensaje}</Text>
+                                        <Pressable
+                                            style={styles.modalBtnPrimary}
+                                            onPress={() => setShowSorteoModal(false)}
+                                        >
+                                            <Text style={styles.modalBtnPrimaryText}>Cerrar</Text>
+                                        </Pressable>
+                                    </>
+                                )}
+                            </View>
+                        </View>
+                    </KeyboardAvoidingView>
+                </Modal>
+            )}
 
             {/* ── Modal: crear cuenta ── */}
             <Modal
@@ -600,5 +713,16 @@ const styles = StyleSheet.create({
     modalBtnSkipText: {
         color: '#999',
         fontSize: 13,
+    },
+    sorteoInput: {
+        width: '100%',
+        borderWidth: 1.5,
+        borderColor: '#DDD',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 15,
+        marginBottom: 10,
+        color: '#333',
     },
 });
