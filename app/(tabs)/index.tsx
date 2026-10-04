@@ -232,7 +232,17 @@ export default function HomeScreen() {
                 </View>
             )}
 
-            {/* MODULO PEDIR COMIDA (Kiosk) */}
+            {/* CHIPS DE NAVEGACION */}
+            <StickyCategoryTabs
+                categories={categories}
+                selectedId={selectedCategory}
+                onSelect={setCategory}
+            />
+
+            {/* SEARCH BAR — below categories */}
+            <SearchBar value={searchQuery} onSearch={setSearch} />
+
+            {/* MODULO PEDIR COMIDA (Kiosk) — debajo de los filtros para no bloquear los productos */}
             {showPedirComida && (
                 <Pressable
                     style={styles.kioskBanner}
@@ -248,16 +258,6 @@ export default function HomeScreen() {
                     </View>
                 </Pressable>
             )}
-
-            {/* CHIPS DE NAVEGACION */}
-            <StickyCategoryTabs
-                categories={categories}
-                selectedId={selectedCategory}
-                onSelect={setCategory}
-            />
-
-            {/* SEARCH BAR — below categories */}
-            <SearchBar value={searchQuery} onSearch={setSearch} />
 
             {/* ERROR BANNER */}
             {error ? (
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
     },
     featuredImageWrap: {
         width: 148,
-        height: 148,
+        height: 110,
         backgroundColor: '#F5F5F5',
     },
     featuredImagePlaceholder: {

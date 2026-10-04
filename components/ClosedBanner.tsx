@@ -53,30 +53,14 @@ export default function ClosedBanner() {
     const hasInfo = storeAddress || timeRanges.length > 0 || deliveryTime;
     if (!hasInfo) return null;
 
+    const parts: string[] = [];
+    if (storeAddress) parts.push(`📍 ${storeAddress}`);
+    if (timeRanges.length > 0) parts.push(`🕐 ${timeRanges.map(r => `${r.start} – ${r.end} hs`).join(' | ')}`);
+    if (deliveryTime) parts.push(`🛵 ~${deliveryTime} min`);
+
     return (
         <View style={styles.openContainer}>
-            {storeAddress ? (
-                <View style={styles.openRow}>
-                    <Text style={styles.openIcon}>📍</Text>
-                    <Text style={styles.openText}>{storeAddress}</Text>
-                </View>
-            ) : null}
-
-            {timeRanges.length > 0 && (
-                <View style={styles.openRow}>
-                    <Text style={styles.openIcon}>🕐</Text>
-                    <Text style={styles.openText}>
-                        {timeRanges.map(r => `${r.start} – ${r.end} hs`).join('  |  ')}
-                    </Text>
-                </View>
-            )}
-
-            {deliveryTime ? (
-                <View style={styles.openRow}>
-                    <Text style={styles.openIcon}>🛵</Text>
-                    <Text style={styles.openText}>Entrega aprox. {deliveryTime} min</Text>
-                </View>
-            ) : null}
+            <Text style={styles.openText} numberOfLines={2}>{parts.join('  ·  ')}</Text>
         </View>
     );
 }
@@ -136,30 +120,19 @@ const styles = StyleSheet.create({
     // ── Open ────────────────────────────────────────────────
     openContainer: {
         marginHorizontal: 16,
-        marginTop: 10,
+        marginTop: 8,
         marginBottom: 4,
         backgroundColor: '#F1F8E9',
-        borderRadius: 12,
-        paddingVertical: 10,
-        paddingHorizontal: 14,
+        borderRadius: 10,
+        paddingVertical: 7,
+        paddingHorizontal: 12,
         borderWidth: 1,
         borderColor: '#C5E1A5',
-        gap: 6,
-    },
-    openRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    openIcon: {
-        fontSize: 14,
-        width: 20,
-        textAlign: 'center',
     },
     openText: {
-        fontSize: 13,
+        fontSize: 12,
         color: '#33691E',
         fontWeight: '500',
-        flex: 1,
+        lineHeight: 18,
     },
 });
