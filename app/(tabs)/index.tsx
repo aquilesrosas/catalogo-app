@@ -180,7 +180,10 @@ export default function HomeScreen() {
             {/* FRANJA HORIZONTAL DE PRODUCTOS DESTACADOS */}
             {destacadosProducts.length > 0 && (
                 <View style={styles.featuredSection}>
-                    <Text style={[styles.featuredTitle, { color: primaryColor }]}>⭐ Destacados</Text>
+                    <View style={styles.featuredTitleRow}>
+                        <Text style={[styles.featuredTitle, { color: primaryColor }]}>⭐ Destacados</Text>
+                        <View style={[styles.featuredTitleBar, { backgroundColor: primaryColor }]} />
+                    </View>
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -207,8 +210,10 @@ export default function HomeScreen() {
                                                 contentFit="cover"
                                             />
                                         ) : (
-                                            <View style={styles.featuredImagePlaceholder}>
-                                                <Text style={{ fontSize: 32, opacity: 0.4 }}>🍽️</Text>
+                                            <View style={[styles.featuredImagePlaceholder, { backgroundColor: primaryColor + '18' }]}>
+                                                <Text style={{ fontSize: 34, fontWeight: '900', color: primaryColor }}>
+                                                    {product.nombre_producto.charAt(0).toUpperCase()}
+                                                </Text>
                                             </View>
                                         )}
                                     </View>
@@ -286,6 +291,7 @@ export default function HomeScreen() {
                             <Text style={styles.registerTitle}>Creá tu cuenta gratis</Text>
                             <Text style={styles.registerSubtitle}>Guardá tus datos y pedí más rápido</Text>
                         </View>
+                        <Text style={styles.registerArrow}>›</Text>
                     </View>
                     <Pressable
                         style={styles.dismissBtn}
@@ -295,6 +301,20 @@ export default function HomeScreen() {
                         <Text style={styles.dismissText}>×</Text>
                     </Pressable>
                 </Pressable>
+            )}
+
+            {/* SECTION HEADER — products list label */}
+            {!loading && products.length > 0 && (
+                <View style={styles.productsHeader}>
+                    <Text style={styles.productsHeaderText}>
+                        {searchQuery
+                            ? `"${searchQuery}"`
+                            : selectedCategory
+                                ? categories.find(c => c.id_categoria === selectedCategory)?.nombre_categoria || 'Productos'
+                                : 'Todo el catálogo'}
+                    </Text>
+                    <Text style={styles.productsHeaderCount}>{sortedProducts.length}</Text>
+                </View>
             )}
         </View>
     );
@@ -1048,16 +1068,51 @@ const styles = StyleSheet.create({
         color: '#aaa',
         marginLeft: 8,
     },
+    // ─── Products section header ───
+    productsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 6,
+    },
+    productsHeaderText: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#111',
+        textTransform: 'capitalize',
+    },
+    productsHeaderCount: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#777',
+        backgroundColor: '#EEEEEE',
+        paddingHorizontal: 9,
+        paddingVertical: 3,
+        borderRadius: 10,
+    },
     // ─── Featured Products shelf ───
     featuredSection: {
-        paddingTop: 14,
+        paddingTop: 16,
         paddingBottom: 4,
     },
-    featuredTitle: {
-        fontSize: 17,
-        fontWeight: '800',
+    featuredTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 16,
-        marginBottom: 10,
+        marginBottom: 12,
+        gap: 10,
+    },
+    featuredTitle: {
+        fontSize: 18,
+        fontWeight: '900',
+    },
+    featuredTitleBar: {
+        flex: 1,
+        height: 2,
+        borderRadius: 1,
+        opacity: 0.2,
     },
     featuredScroll: {
         paddingHorizontal: 16,
@@ -1066,17 +1121,17 @@ const styles = StyleSheet.create({
     featuredCard: {
         width: 148,
         backgroundColor: '#fff',
-        borderRadius: 14,
+        borderRadius: 16,
         overflow: 'hidden',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.08,
-        shadowRadius: 8,
+        shadowRadius: 10,
         elevation: 4,
     },
     featuredImageWrap: {
         width: 148,
-        height: 110,
+        height: 148,
         backgroundColor: '#F5F5F5',
     },
     featuredImagePlaceholder: {

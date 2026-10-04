@@ -83,8 +83,10 @@ function ProductCard({ product }: ProductCardProps) {
                             transition={200}
                         />
                     ) : (
-                        <View style={styles.placeholder}>
-                            <Text style={styles.placeholderIcon}>🍽️</Text>
+                        <View style={[styles.placeholder, { backgroundColor: primaryColor + '18' }]}>
+                            <Text style={[styles.placeholderLetter, { color: primaryColor }]}>
+                                {product.nombre_producto.charAt(0).toUpperCase()}
+                            </Text>
                         </View>
                     )}
                     {/* Bottom gradient overlay for visual depth */}
@@ -236,7 +238,7 @@ const styles = StyleSheet.create({
     },
     imageDesktop: {
         width: '100%',
-        aspectRatio: 1.2,
+        aspectRatio: 1,
     },
     image: {
         width: '100%',
@@ -247,11 +249,11 @@ const styles = StyleSheet.create({
         height: '100%',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#F0F4F0',
     },
-    placeholderIcon: {
-        fontSize: 40,
-        opacity: 0.5,
+    placeholderLetter: {
+        fontSize: 48,
+        fontWeight: '900',
+        letterSpacing: -1,
     },
     unitBadge: {
         position: 'absolute',

@@ -83,7 +83,12 @@ export default function HeroHeader({ showTagline = true }: { showTagline?: boole
                         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
                     </View>
                 ) : (
-                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.28)' }]} />
+                    <>
+                        <View style={styles.decoCircle1} />
+                        <View style={styles.decoCircle2} />
+                        <View style={styles.decoCircle3} />
+                        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.18)' }]} />
+                    </>
                 )}
 
                 <View style={styles.heroContent}>
@@ -92,7 +97,7 @@ export default function HeroHeader({ showTagline = true }: { showTagline?: boole
                         {logoUrl ? (
                             <Image source={{ uri: logoUrl }} style={styles.logo} contentFit="cover" />
                         ) : (
-                            <View style={[styles.logoPlaceholder, { backgroundColor: primaryColor }]}>
+                            <View style={[styles.logoPlaceholder, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
                                 <Text style={styles.logoLetter}>{name?.charAt(0) || 'C'}</Text>
                             </View>
                         )}
@@ -122,9 +127,36 @@ export default function HeroHeader({ showTagline = true }: { showTagline?: boole
 
 const styles = StyleSheet.create({
     hero: {
-        paddingBottom: 32,
+        paddingBottom: 40,
         position: 'relative',
         overflow: 'hidden',
+    },
+    decoCircle1: {
+        position: 'absolute',
+        top: -50,
+        right: -40,
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: 'rgba(255,255,255,0.09)',
+    },
+    decoCircle2: {
+        position: 'absolute',
+        bottom: -30,
+        left: -30,
+        width: 160,
+        height: 160,
+        borderRadius: 80,
+        backgroundColor: 'rgba(255,255,255,0.07)',
+    },
+    decoCircle3: {
+        position: 'absolute',
+        top: 30,
+        left: '30%' as any,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: 'rgba(255,255,255,0.05)',
     },
     heroContent: {
         alignItems: 'center',
