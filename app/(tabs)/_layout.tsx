@@ -132,9 +132,7 @@ export default function TabsLayout() {
         <Tabs
             tabBar={(props) => <CustomTabBar {...props} />}
             screenOptions={{
-                headerStyle: { backgroundColor: '#1B5E20' },
-                headerTintColor: '#fff',
-                headerTitleStyle: { fontWeight: '700' },
+                headerShown: false,
             }}
         >
             <Tabs.Screen
