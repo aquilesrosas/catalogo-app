@@ -53,6 +53,7 @@ export default function OrderConfirmationScreen() {
     const clearOrder = useLastOrderStore((s) => s.clearOrder);
     const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
     const clientName = useAuthStore((s) => s.clientName);
+    const clientPhone = useAuthStore((s) => s.clientPhone);
 
     const [whatsappPhone, setWhatsappPhone] = useState<string>('');
     const [storeName, setStoreName] = useState<string>('');
@@ -85,8 +86,18 @@ export default function OrderConfirmationScreen() {
     useEffect(() => {
         if (!order) return;
         getSorteoActivo().then((s) => {
-            if (s && parseFloat(order.total) >= parseFloat(s.compra_minima)) {
-                setSorteoActivo(s);
+            if (!s || parseFloat(order.total) < parseFloat(s.compra_minima)) return;
+            setSorteoActivo(s);
+            if (isLoggedIn() && clientName && clientPhone) {
+                // Usuario con cuenta: participa automáticamente
+                participarSorteo({ nombre: clientName, telefono: clientPhone, order_id: order.id })
+                    .then(res => {
+                        setSorteoMensaje(res.mensaje || '¡Ya estás participando!');
+                        setSorteoEnviado(true);
+                        setShowSorteoModal(true);
+                    })
+                    .catch(() => setShowSorteoModal(true));
+            } else {
                 setShowSorteoModal(true);
             }
         }).catch(() => {});

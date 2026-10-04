@@ -19,6 +19,7 @@ import { useCatalogStore } from '@/stores/catalogStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useConfigStore } from '@/stores/configStore';
 import { getProfile, getStoreConfig, getProductsByIds, Product } from '@/services/api';
+import { getSorteoActivo, SorteoActivo } from '@/services/sorteo';
 import ProductCard from '@/components/ProductCard';
 import StickyCategoryTabs from '@/components/StickyCategoryTabs';
 import SearchBar from '@/components/SearchBar';
@@ -65,6 +66,8 @@ export default function HomeScreen() {
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const [hookTagline, setHookTagline] = useState('');
     const [pointsModalVisible, setPointsModalVisible] = useState(false);
+    const [sorteoModalVisible, setSorteoModalVisible] = useState(false);
+    const [sorteoInfo, setSorteoInfo] = useState<SorteoActivo | null>(null);
     const showBanner = !isLoggedIn() && !bannerDismissed;
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
@@ -110,6 +113,15 @@ export default function HomeScreen() {
         getStoreConfig().then(config => {
             const cc = (config.catalog_config || {}) as any;
             setHookTagline(cc.tagline || '');
+        }).catch(() => {});
+    }, [slug]);
+
+    useEffect(() => {
+        getSorteoActivo().then(s => {
+            if (s) {
+                setSorteoInfo(s);
+                setSorteoModalVisible(true);
+            }
         }).catch(() => {});
     }, [slug]);
 
@@ -428,6 +440,54 @@ export default function HomeScreen() {
                     <Text style={styles.cartPillTotal}>{formatPrice(getTotal())}</Text>
                     <Text style={styles.cartPillArrow}>→</Text>
                 </Pressable>
+            )}
+
+            {/* Modal Sorteo Vigente */}
+            {sorteoInfo && (
+                <Modal
+                    visible={sorteoModalVisible}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setSorteoModalVisible(false)}
+                >
+                    <Pressable style={styles.modalOverlay} onPress={() => setSorteoModalVisible(false)}>
+                        <Pressable style={styles.sorteoModalContent} onPress={() => {}}>
+                            <Text style={styles.sorteoEmoji}>🎟️</Text>
+                            <Text style={styles.sorteoModalTitle}>¡Sorteo vigente!</Text>
+                            <Text style={styles.sorteoModalNombre}>{sorteoInfo.nombre}</Text>
+
+                            <View style={styles.sorteoPremioBox}>
+                                <Text style={styles.sorteoPremioLabel}>Premio</Text>
+                                <Text style={styles.sorteoPremioValue}>{sorteoInfo.premio}</Text>
+                            </View>
+
+                            <Text style={styles.sorteoModalDesc}>
+                                Realizá una compra de{' '}
+                                <Text style={styles.sorteoBold}>${parseFloat(sorteoInfo.compra_minima).toLocaleString('es-AR')}</Text>
+                                {' '}o más y participás automáticamente.
+                            </Text>
+
+                            {isLoggedIn() && (
+                                <View style={styles.sorteoLoginInfo}>
+                                    <Text style={styles.sorteoLoginText}>
+                                        ✅ Con tu cuenta, participás sin ingresar datos.
+                                    </Text>
+                                </View>
+                            )}
+
+                            <Text style={styles.sorteoFechaFin}>
+                                Válido hasta el {new Date(sorteoInfo.fecha_fin).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                            </Text>
+
+                            <Pressable style={[styles.sorteoBtn, { backgroundColor: primaryColor }]} onPress={() => setSorteoModalVisible(false)}>
+                                <Text style={styles.sorteoBtnText}>¡Quiero participar!</Text>
+                            </Pressable>
+                            <Pressable onPress={() => setSorteoModalVisible(false)}>
+                                <Text style={styles.sorteoCerrar}>Cerrar</Text>
+                            </Pressable>
+                        </Pressable>
+                    </Pressable>
+                </Modal>
             )}
 
             {/* Modal Info Puntos */}
@@ -816,6 +876,102 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.85)',
         fontSize: 18,
         fontWeight: '600',
+    },
+    // ─── Modal Sorteo ───
+    sorteoModalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 24,
+        width: '100%',
+        maxWidth: 360,
+        alignItems: 'center',
+    },
+    sorteoEmoji: {
+        fontSize: 52,
+        marginBottom: 8,
+    },
+    sorteoModalTitle: {
+        fontSize: 22,
+        fontWeight: '900',
+        color: '#1a1a1a',
+        marginBottom: 4,
+    },
+    sorteoModalNombre: {
+        fontSize: 15,
+        color: '#555',
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    sorteoPremioBox: {
+        backgroundColor: '#FFF8E1',
+        borderRadius: 12,
+        padding: 14,
+        width: '100%',
+        alignItems: 'center',
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#FFD54F',
+    },
+    sorteoPremioLabel: {
+        fontSize: 12,
+        color: '#F57F17',
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 4,
+    },
+    sorteoPremioValue: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#E65100',
+    },
+    sorteoModalDesc: {
+        fontSize: 15,
+        color: '#333',
+        textAlign: 'center',
+        marginBottom: 12,
+        lineHeight: 22,
+    },
+    sorteoBold: {
+        fontWeight: '800',
+        color: '#2E7D32',
+    },
+    sorteoLoginInfo: {
+        backgroundColor: '#E8F5E9',
+        borderRadius: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        marginBottom: 12,
+        width: '100%',
+    },
+    sorteoLoginText: {
+        fontSize: 13,
+        color: '#2E7D32',
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    sorteoFechaFin: {
+        fontSize: 12,
+        color: '#888',
+        marginBottom: 20,
+    },
+    sorteoBtn: {
+        borderRadius: 14,
+        paddingVertical: 14,
+        paddingHorizontal: 28,
+        width: '100%',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    sorteoBtnText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 16,
+    },
+    sorteoCerrar: {
+        fontSize: 14,
+        color: '#999',
+        paddingVertical: 4,
     },
     // ─── Modal Puntos ───
     modalOverlay: {
